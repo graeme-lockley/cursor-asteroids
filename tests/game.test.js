@@ -29,6 +29,21 @@ const mockCanvas = {
     })
 };
 
+// Mock Audio class
+global.Audio = class {
+    constructor(src) {
+        this.src = src;
+        this.volume = 1.0;
+    }
+    play() {
+        return Promise.resolve();
+    }
+    pause() {}
+    cloneNode() {
+        return new Audio(this.src);
+    }
+};
+
 describe('Game', () => {
     let game;
     

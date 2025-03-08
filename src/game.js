@@ -2,6 +2,7 @@ import Ship from './ship.js';
 import Asteroid from './asteroid.js';
 import { checkCollision } from './collision.js';
 import { setupInput, keys } from './input.js';
+import AudioManager from './audio.js';
 
 export default class Game {
     constructor(canvas) {
@@ -27,6 +28,9 @@ export default class Game {
         this.ship = new Ship(this.width / 2, this.height / 2);
         this.asteroids = [];
         this.bullets = [];
+        
+        // Initialize audio
+        this.audio = new AudioManager();
         
         // Initialize input handling
         setupInput();
@@ -69,6 +73,9 @@ export default class Game {
         // Create initial asteroids based on wave number
         this.createAsteroids(this.getAsteroidsForWave());
         
+        // Start background beat
+        this.audio.startBackgroundBeat(this.wave);
+        
         console.log('Starting game loop...');
         // Start game loop
         this.lastTime = performance.now();
@@ -104,6 +111,7 @@ export default class Game {
             const bullet = this.ship.shoot();
             if (bullet) {
                 this.bullets.push(bullet);
+                this.audio.playFireSound();
             }
         }
         
@@ -164,6 +172,9 @@ export default class Game {
             
             console.log('Original asteroid size:', asteroid.size);
             
+            // Play destruction sound
+            this.audio.playBangSound(asteroid.size);
+            
             // Create smaller asteroids if not already at smallest size
             const newAsteroids = [];
             if (asteroid.size !== 'small') {
@@ -190,6 +201,7 @@ export default class Game {
             this.wave++;  // Increment wave number
             console.log('Starting wave', this.wave);
             this.createAsteroids(this.getAsteroidsForWave());
+            this.audio.startBackgroundBeat(this.wave);  // Update beat speed
         }
     }
     
@@ -206,6 +218,7 @@ export default class Game {
         this.lives--;
         if (this.lives <= 0) {
             this.gameOver = true;
+            this.audio.stopBackgroundBeat();  // Stop background beat on game over
             document.getElementById('final-score').textContent = this.score;
             document.getElementById('game-over-screen').classList.remove('hidden');
         } else {
@@ -247,6 +260,7 @@ export default class Game {
         this.bullets = [];
         this.ship.reset(this.width / 2, this.height / 2);
         this.createAsteroids(this.getAsteroidsForWave());
+        this.audio.startBackgroundBeat(this.wave);  // Restart background beat
         document.getElementById('game-over-screen').classList.add('hidden');
     }
 } 
