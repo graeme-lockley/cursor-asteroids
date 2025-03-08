@@ -21,6 +21,7 @@ export default class Game {
         this.lives = 3;
         this.gameOver = false;
         this.paused = false;
+        this.wave = 1;  // Track the current wave number
         
         // Game objects
         this.ship = new Ship(this.width / 2, this.height / 2);
@@ -65,13 +66,18 @@ export default class Game {
     
     init() {
         console.log('Creating initial asteroids...');
-        // Create initial asteroids
-        this.createAsteroids(4);
+        // Create initial asteroids based on wave number
+        this.createAsteroids(this.getAsteroidsForWave());
         
         console.log('Starting game loop...');
         // Start game loop
         this.lastTime = performance.now();
         requestAnimationFrame(this.gameLoop);
+    }
+    
+    getAsteroidsForWave() {
+        // Start with 4 asteroids and add 1 for each wave
+        return 3 + this.wave;
     }
     
     createAsteroids(count) {
@@ -153,33 +159,37 @@ export default class Game {
     
     handleAsteroidDestruction(asteroidIndex) {
         const asteroid = this.asteroids[asteroidIndex];
-        this.score += this.getAsteroidScore(asteroid.size);
-        
-        console.log('Original asteroid size:', asteroid.size);
-        
-        // Create smaller asteroids if not already at smallest size
-        const newAsteroids = [];
-        if (asteroid.size !== 'small') {
-            const newSize = asteroid.size === 'large' ? 'medium' : 'small';
-            console.log('Creating new asteroids with size:', newSize);
-            for (let i = 0; i < 2; i++) {
-                const newAsteroid = new Asteroid(asteroid.x, asteroid.y, newSize);
-                console.log('New asteroid created with size:', newAsteroid.size);
-                newAsteroids.push(newAsteroid);
+        if (asteroid) {
+            this.score += this.getAsteroidScore(asteroid.size);
+            
+            console.log('Original asteroid size:', asteroid.size);
+            
+            // Create smaller asteroids if not already at smallest size
+            const newAsteroids = [];
+            if (asteroid.size !== 'small') {
+                const newSize = asteroid.size === 'large' ? 'medium' : 'small';
+                console.log('Creating new asteroids with size:', newSize);
+                for (let i = 0; i < 2; i++) {
+                    const newAsteroid = new Asteroid(asteroid.x, asteroid.y, newSize);
+                    console.log('New asteroid created with size:', newAsteroid.size);
+                    newAsteroids.push(newAsteroid);
+                }
             }
+            
+            // Remove the original asteroid
+            this.asteroids.splice(asteroidIndex, 1);
+            
+            // Add the new asteroids
+            this.asteroids.push(...newAsteroids);
+            
+            console.log('Final asteroid sizes:', this.asteroids.map(a => a.size));
         }
         
-        // Remove the original asteroid
-        this.asteroids.splice(asteroidIndex, 1);
-        
-        // Add the new asteroids
-        this.asteroids.push(...newAsteroids);
-        
-        console.log('Final asteroid sizes:', this.asteroids.map(a => a.size));
-        
-        // Create new asteroids if all are destroyed
+        // Create new wave if all asteroids are destroyed
         if (this.asteroids.length === 0) {
-            this.createAsteroids(4);
+            this.wave++;  // Increment wave number
+            console.log('Starting wave', this.wave);
+            this.createAsteroids(this.getAsteroidsForWave());
         }
     }
     
@@ -232,10 +242,11 @@ export default class Game {
         this.score = 0;
         this.lives = 3;
         this.gameOver = false;
+        this.wave = 1;  // Reset wave number
         this.asteroids = [];
         this.bullets = [];
         this.ship.reset(this.width / 2, this.height / 2);
-        this.createAsteroids(4);
+        this.createAsteroids(this.getAsteroidsForWave());
         document.getElementById('game-over-screen').classList.add('hidden');
     }
 } 

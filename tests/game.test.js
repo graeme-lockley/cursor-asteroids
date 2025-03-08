@@ -42,8 +42,9 @@ describe('Game', () => {
             expect(game.lives).toBe(3);
             expect(game.gameOver).toBe(false);
             expect(game.paused).toBe(false);
+            expect(game.wave).toBe(1);  // Check initial wave
             expect(game.ship).toBeTruthy();
-            expect(game.asteroids.length).toBeGreaterThan(0);
+            expect(game.asteroids.length).toBe(4);  // 3 + wave 1 = 4 asteroids
             expect(game.bullets.length).toBe(0);
         });
     });
@@ -159,6 +160,46 @@ describe('Game', () => {
             // Verify no changes occurred
             expect(game.lives).toBe(initialLives);
             expect(game.asteroids.length).toBe(initialAsteroidCount);
+        });
+    });
+    
+    describe('wave progression', () => {
+        test('increases number of asteroids after clearing a wave', () => {
+            // Start with wave 1 (4 asteroids)
+            expect(game.wave).toBe(1);
+            expect(game.asteroids.length).toBe(4);
+            
+            // Simulate destroying all asteroids by directly creating a new wave
+            game.asteroids = [];
+            game.handleAsteroidDestruction(0);  // This will trigger new wave creation
+            
+            // Should now be wave 2 with 5 asteroids
+            expect(game.wave).toBe(2);
+            expect(game.asteroids.length).toBe(5);
+            expect(game.asteroids.every(a => a.size === 'large')).toBe(true);
+        });
+        
+        test('resets wave number when game is reset', () => {
+            // Progress to wave 2
+            game.asteroids = [];
+            game.handleAsteroidDestruction(0);
+            expect(game.wave).toBe(2);
+            
+            // Reset game
+            game.reset();
+            
+            // Should be back to wave 1
+            expect(game.wave).toBe(1);
+            expect(game.asteroids.length).toBe(4);
+            expect(game.asteroids.every(a => a.size === 'large')).toBe(true);
+        });
+        
+        test('correctly calculates asteroids for each wave', () => {
+            expect(game.getAsteroidsForWave()).toBe(4);  // Wave 1
+            game.wave = 2;
+            expect(game.getAsteroidsForWave()).toBe(5);  // Wave 2
+            game.wave = 3;
+            expect(game.getAsteroidsForWave()).toBe(6);  // Wave 3
         });
     });
 }); 
