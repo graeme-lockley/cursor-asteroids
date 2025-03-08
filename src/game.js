@@ -103,7 +103,7 @@ export default class Game {
         
         // Update bullets
         this.bullets = this.bullets.filter(bullet => {
-            bullet.update(deltaTime);
+            bullet.update(deltaTime, this.width, this.height);
             return !bullet.isDead;
         });
         
@@ -117,40 +117,65 @@ export default class Game {
     }
     
     checkCollisions() {
+        const asteroidsToDestroy = new Set();
+        
         // Check bullet-asteroid collisions
         this.bullets.forEach(bullet => {
-            this.asteroids.forEach((asteroid, asteroidIndex) => {
-                if (checkCollision(bullet, asteroid)) {
-                    bullet.isDead = true;
-                    this.splitAsteroid(asteroidIndex);
+            if (!bullet.isDead) {  // Only check live bullets
+                for (let i = 0; i < this.asteroids.length; i++) {
+                    if (!asteroidsToDestroy.has(i) && checkCollision(bullet, this.asteroids[i])) {
+                        bullet.isDead = true;
+                        asteroidsToDestroy.add(i);
+                        break;  // Stop checking after first hit
+                    }
                 }
-            });
+            }
         });
         
         // Check ship-asteroid collisions
         if (!this.ship.isInvulnerable) {
-            this.asteroids.forEach(asteroid => {
-                if (checkCollision(this.ship, asteroid)) {
+            for (let i = 0; i < this.asteroids.length; i++) {
+                if (!asteroidsToDestroy.has(i) && checkCollision(this.ship, this.asteroids[i])) {
                     this.handleShipCollision();
+                    asteroidsToDestroy.add(i);
+                    break;  // Stop checking after first hit
                 }
-            });
-        }
-    }
-    
-    splitAsteroid(index) {
-        const asteroid = this.asteroids[index];
-        this.score += this.getAsteroidScore(asteroid.size);
-        
-        if (asteroid.size !== 'small') {
-            const newSize = asteroid.size === 'large' ? 'medium' : 'small';
-            for (let i = 0; i < 2; i++) {
-                this.asteroids.push(
-                    new Asteroid(asteroid.x, asteroid.y, newSize)
-                );
             }
         }
         
-        this.asteroids.splice(index, 1);
+        // Process destroyed asteroids in reverse order to maintain correct indices
+        Array.from(asteroidsToDestroy)
+            .sort((a, b) => b - a)  // Sort in descending order
+            .forEach(index => {
+                this.handleAsteroidDestruction(index);
+            });
+    }
+    
+    handleAsteroidDestruction(asteroidIndex) {
+        const asteroid = this.asteroids[asteroidIndex];
+        this.score += this.getAsteroidScore(asteroid.size);
+        
+        console.log('Original asteroid size:', asteroid.size);
+        
+        // Create smaller asteroids if not already at smallest size
+        const newAsteroids = [];
+        if (asteroid.size !== 'small') {
+            const newSize = asteroid.size === 'large' ? 'medium' : 'small';
+            console.log('Creating new asteroids with size:', newSize);
+            for (let i = 0; i < 2; i++) {
+                const newAsteroid = new Asteroid(asteroid.x, asteroid.y, newSize);
+                console.log('New asteroid created with size:', newAsteroid.size);
+                newAsteroids.push(newAsteroid);
+            }
+        }
+        
+        // Remove the original asteroid
+        this.asteroids.splice(asteroidIndex, 1);
+        
+        // Add the new asteroids
+        this.asteroids.push(...newAsteroids);
+        
+        console.log('Final asteroid sizes:', this.asteroids.map(a => a.size));
         
         // Create new asteroids if all are destroyed
         if (this.asteroids.length === 0) {
