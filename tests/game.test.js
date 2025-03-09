@@ -83,6 +83,19 @@ const mockContext = {
     textAlign: 'left'
 };
 
+// Mock input module
+jest.mock('../src/input.js', () => ({
+    keys: {
+        left: false,
+        right: false,
+        up: false,
+        space: false
+    },
+    setupInput: jest.fn()
+}));
+
+import { keys } from '../src/input.js';
+
 describe('Game', () => {
     let game;
     let canvas;
@@ -271,6 +284,14 @@ describe('Game', () => {
     });
     
     describe('wave progression', () => {
+        beforeEach(() => {
+            jest.useFakeTimers();
+        });
+
+        afterEach(() => {
+            jest.useRealTimers();
+        });
+
         test('increases number of asteroids after clearing a wave', () => {
             game.wave = 1;
             const wave1Count = game.asteroids.length;
@@ -304,6 +325,95 @@ describe('Game', () => {
             expect(wave1Count).toBe(4);  // 3 + wave 1 = 4 asteroids
             expect(wave2Count).toBe(5);  // 3 + wave 2 = 5 asteroids
             expect(wave3Count).toBe(6);  // 3 + wave 3 = 6 asteroids
+        });
+
+        test('handles background beat correctly during wave transition', () => {
+            // Spy on audio methods
+            const stopBackgroundBeatSpy = jest.spyOn(game.audio, 'stopBackgroundBeat');
+            const startBackgroundBeatSpy = jest.spyOn(game.audio, 'startBackgroundBeat');
+            const playWaveEndSoundSpy = jest.spyOn(game.audio, 'playWaveEndSound');
+            
+            // Clear all asteroids except one small one
+            game.asteroids = [new Asteroid(400, 300, 'small')];
+            const initialWave = game.wave;
+            
+            // Destroy the last asteroid
+            game.handleAsteroidDestruction(0);
+            
+            // Wave end sound should play and background beat should stop
+            expect(playWaveEndSoundSpy).toHaveBeenCalled();
+            expect(stopBackgroundBeatSpy).toHaveBeenCalled();
+            
+            // Background beat should not restart immediately
+            expect(startBackgroundBeatSpy).not.toHaveBeenCalled();
+            
+            // Advance timer by 3 seconds (wave creation delay)
+            jest.advanceTimersByTime(3000);
+            
+            // New wave should be created but background beat should not start yet
+            expect(game.wave).toBe(initialWave + 1);
+            expect(startBackgroundBeatSpy).not.toHaveBeenCalled();
+            
+            // Advance timer by 0.5 seconds (background beat delay)
+            jest.advanceTimersByTime(500);
+            
+            // Now the background beat should start
+            expect(startBackgroundBeatSpy).toHaveBeenCalledWith(initialWave + 1);
+        });
+    });
+    
+    describe('sound handling', () => {
+        test('plays thrust sound when thrust is activated', () => {
+            const playThrustSpy = jest.spyOn(game.audio, 'playThrustSound');
+            const stopThrustSpy = jest.spyOn(game.audio, 'stopThrustSound');
+            
+            // Set initial state
+            keys.up = false;
+            game.update(0.016);
+            
+            // Simulate thrust key press
+            keys.up = true;
+            game.update(0.016);
+            
+            expect(playThrustSpy).toHaveBeenCalled();
+            expect(stopThrustSpy).not.toHaveBeenCalled();
+        });
+        
+        test('stops thrust sound when thrust is deactivated', () => {
+            const playThrustSpy = jest.spyOn(game.audio, 'playThrustSound');
+            const stopThrustSpy = jest.spyOn(game.audio, 'stopThrustSound');
+            
+            // Set initial state
+            keys.up = false;
+            game.update(0.016);
+            
+            // Simulate thrust key press
+            keys.up = true;
+            game.update(0.016);
+            
+            // Simulate thrust key release
+            keys.up = false;
+            game.update(0.016);
+            
+            expect(stopThrustSpy).toHaveBeenCalled();
+            expect(playThrustSpy).toHaveBeenCalledTimes(1);
+        });
+        
+        test('does not play thrust sound during game over', () => {
+            const playThrustSpy = jest.spyOn(game.audio, 'playThrustSound');
+            
+            // Set game to game over state
+            game.gameOver = true;
+            
+            // Set initial state
+            keys.up = false;
+            game.update(0.016);
+            
+            // Simulate thrust key press
+            keys.up = true;
+            game.update(0.016);
+            
+            expect(playThrustSpy).not.toHaveBeenCalled();
         });
     });
 }); 

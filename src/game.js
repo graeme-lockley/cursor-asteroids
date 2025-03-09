@@ -145,8 +145,18 @@ export default class Game {
     
     update(deltaTime) {
         // Only update ship if not in game over pending state
-        if (!this.gameOverPending) {
+        if (!this.gameOverPending && !this.gameOver) {
+            // Store previous thrust state
+            const prevThrust = this.ship.thrust;
+            
             this.ship.update(deltaTime, keys, this.canvas.width, this.canvas.height);
+            
+            // Handle thrust sound
+            if (this.ship.thrust && !prevThrust) {
+                this.audio.playThrustSound();
+            } else if (!this.ship.thrust && prevThrust) {
+                this.audio.stopThrustSound();
+            }
             
             // Handle shooting
             if (keys.space && this.ship.shootTimer <= 0) {
@@ -301,8 +311,11 @@ export default class Game {
             // Create new wave after delay
             setTimeout(() => {
                 this.createNewWave();
-                // Start the background beat for the new wave
-                this.audio.startBackgroundBeat(this.wave);
+                // Start the background beat for the new wave with a slight delay
+                // to ensure the wave end sound has finished
+                setTimeout(() => {
+                    this.audio.startBackgroundBeat(this.wave);
+                }, 500);  // 0.5 second delay after wave creation
             }, 3000);  // 3 second delay
         }
     }
