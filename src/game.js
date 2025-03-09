@@ -36,7 +36,7 @@ export default class Game {
         this.ship = new Ship(this.canvas.width / 2, this.canvas.height / 2);
         this.asteroids = [];
         this.bullets = [];
-        this.audio = new AudioManager();
+        this.audio = new AudioManager(this.isTestMode);
         
         // Create initial asteroids
         this.createNewWave();

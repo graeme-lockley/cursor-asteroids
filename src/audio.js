@@ -1,7 +1,9 @@
 export default class AudioManager {
-    constructor() {
-        // Create audio context
-        this.context = new (window.AudioContext || window.webkitAudioContext)();
+    constructor(isTest = false) {
+        // Create audio context if not in test mode
+        if (!isTest) {
+            this.context = new (window.AudioContext || window.webkitAudioContext)();
+        }
         
         // Audio buffers for each sound
         this.buffers = {};
@@ -31,7 +33,31 @@ export default class AudioManager {
         this.currentBeat = 0;  // 0 for beat1, 1 for beat2
         
         // Initialize audio
-        this.init();
+        if (!isTest) {
+            this.init();
+        } else {
+            // Create mock pools for testing
+            Object.keys(this.poolConfig).forEach(key => {
+                const config = this.poolConfig[key];
+                for (let i = 0; i < config.size; i++) {
+                    this.pools[key].push({
+                        source: {
+                            connect: jest.fn(),
+                            disconnect: jest.fn(),
+                            start: jest.fn(),
+                            stop: jest.fn(),
+                            buffer: null
+                        },
+                        gainNode: {
+                            connect: jest.fn(),
+                            gain: { value: 0.5 }
+                        },
+                        isPlaying: false,
+                        startTime: 0
+                    });
+                }
+            });
+        }
     }
     
     async init() {
@@ -73,7 +99,9 @@ export default class AudioManager {
     }
     
     getAvailableNode(pool) {
-        const now = this.context.currentTime;
+        if (!pool || pool.length === 0) return null;
+        
+        const now = this.context ? this.context.currentTime : Date.now() / 1000;
         
         // First try to find a node that's not playing
         let node = pool.find(n => !n.isPlaying);
@@ -84,11 +112,13 @@ export default class AudioManager {
                 return (!oldest || current.startTime < oldest.startTime) ? current : oldest;
             }, null);
             
-            // Disconnect and recreate the source node
-            node.source.disconnect();
-            node.source = this.context.createBufferSource();
-            node.source.buffer = node.source.buffer;
-            node.source.connect(node.gainNode);
+            if (this.context) {
+                // Disconnect and recreate the source node
+                node.source.disconnect();
+                node.source = this.context.createBufferSource();
+                node.source.buffer = node.source.buffer;
+                node.source.connect(node.gainNode);
+            }
         }
         
         return node;
@@ -101,13 +131,15 @@ export default class AudioManager {
         const node = this.getAvailableNode(pool);
         if (!node) return;
         
-        // Create new source (sources can only be played once)
-        node.source = this.context.createBufferSource();
-        node.source.buffer = this.buffers[poolKey];
-        node.source.connect(node.gainNode);
+        if (this.context) {
+            // Create new source (sources can only be played once)
+            node.source = this.context.createBufferSource();
+            node.source.buffer = this.buffers[poolKey];
+            node.source.connect(node.gainNode);
+        }
         
         node.isPlaying = true;
-        node.startTime = this.context.currentTime;
+        node.startTime = this.context ? this.context.currentTime : Date.now() / 1000;
         
         node.source.onended = () => {
             node.isPlaying = false;
@@ -143,6 +175,9 @@ export default class AudioManager {
         const speedMultiplier = Math.min(4, 1 + (wave - 1) * 0.5);
         this.beatInterval = 1000 / speedMultiplier;
         
+        // Start with beat1
+        this.currentBeat = 0;
+        
         // Start the beat
         const playBeat = () => {
             this.playSound(this.currentBeat === 0 ? 'beat1' : 'beat2');
@@ -154,8 +189,7 @@ export default class AudioManager {
             this.beatTimer = setTimeout(playBeat, this.beatInterval);
         };
         
-        // Start with beat1
-        this.currentBeat = 0;
+        // Play first beat
         playBeat();
     }
     

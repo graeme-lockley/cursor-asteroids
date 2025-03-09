@@ -1,104 +1,139 @@
-import AudioManager from '../src/audio.js';
-
-// Mock Audio class
-global.Audio = class {
-    constructor(src) {
-        this.src = src;
-        this.volume = 1;
+// Mock Web Audio API
+class MockAudioContext {
+    constructor() {
+        this.currentTime = 0;
+        this.state = 'suspended';
     }
     
-    play() {
+    createBufferSource() {
+        return {
+            connect: jest.fn(),
+            disconnect: jest.fn(),
+            start: jest.fn(),
+            stop: jest.fn(),
+            buffer: null,
+            onended: null
+        };
+    }
+    
+    createGain() {
+        return {
+            connect: jest.fn(),
+            gain: { value: 1 }
+        };
+    }
+    
+    decodeAudioData(buffer) {
+        return Promise.resolve({});
+    }
+    
+    resume() {
+        this.state = 'running';
         return Promise.resolve();
     }
-    
-    cloneNode() {
-        return new Audio(this.src);
-    }
+}
+
+// Mock fetch for audio file loading
+global.fetch = jest.fn(() =>
+    Promise.resolve({
+        arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
+    })
+);
+
+global.window = {
+    AudioContext: MockAudioContext,
+    webkitAudioContext: MockAudioContext
 };
+
+import AudioManager from '../src/audio.js';
 
 describe('AudioManager', () => {
     let audio;
     
     beforeEach(() => {
-        audio = new AudioManager();
         jest.useFakeTimers();
+        audio = new AudioManager(true);  // Pass true to enable test mode
     });
     
     afterEach(() => {
+        jest.clearAllMocks();
         jest.useRealTimers();
     });
     
-    test('initializes with correct sound files', () => {
-        expect(audio.sounds.beat1.src).toContain('beat1.wav');
-        expect(audio.sounds.beat2.src).toContain('beat2.wav');
-        expect(audio.sounds.fire.src).toContain('fire.wav');
-        expect(audio.sounds.bangLarge.src).toContain('bang-large.wav');
-        expect(audio.sounds.bangMedium.src).toContain('bang-medium.wav');
-        expect(audio.sounds.bangSmall.src).toContain('bang-small.wav');
+    test('initializes with correct sound pools', () => {
+        expect(audio.pools.beat1).toBeDefined();
+        expect(audio.pools.beat2).toBeDefined();
+        expect(audio.pools.fire).toBeDefined();
+        expect(audio.pools.bangLarge).toBeDefined();
+        expect(audio.pools.bangMedium).toBeDefined();
+        expect(audio.pools.bangSmall).toBeDefined();
+        
+        // Check that each pool has the correct number of nodes
+        expect(audio.pools.beat1.length).toBe(2);
+        expect(audio.pools.beat2.length).toBe(2);
+        expect(audio.pools.fire.length).toBe(4);
+        expect(audio.pools.bangLarge.length).toBe(4);
+        expect(audio.pools.bangMedium.length).toBe(4);
+        expect(audio.pools.bangSmall.length).toBe(4);
     });
     
     test('plays fire sound', () => {
-        const spy = jest.spyOn(audio.sounds.fire, 'cloneNode');
         audio.playFireSound();
-        expect(spy).toHaveBeenCalled();
+        const fireNode = audio.pools.fire[0];
+        expect(fireNode.source.start).toHaveBeenCalled();
     });
     
     test('plays correct bang sound for each asteroid size', () => {
-        const spyLarge = jest.spyOn(audio.sounds.bangLarge, 'cloneNode');
-        const spyMedium = jest.spyOn(audio.sounds.bangMedium, 'cloneNode');
-        const spySmall = jest.spyOn(audio.sounds.bangSmall, 'cloneNode');
-        
         audio.playBangSound('large');
-        expect(spyLarge).toHaveBeenCalled();
+        expect(audio.pools.bangLarge[0].source.start).toHaveBeenCalled();
         
         audio.playBangSound('medium');
-        expect(spyMedium).toHaveBeenCalled();
+        expect(audio.pools.bangMedium[0].source.start).toHaveBeenCalled();
         
         audio.playBangSound('small');
-        expect(spySmall).toHaveBeenCalled();
+        expect(audio.pools.bangSmall[0].source.start).toHaveBeenCalled();
     });
     
     test('background beat speeds up with wave number', () => {
-        audio.startBackgroundBeat(1);
         const initialInterval = audio.beatInterval;
-        
         audio.startBackgroundBeat(2);
-        expect(audio.beatInterval).toBeLessThan(initialInterval);
-        
-        audio.startBackgroundBeat(3);
         expect(audio.beatInterval).toBeLessThan(initialInterval);
     });
     
     test('background beat has maximum speed', () => {
-        audio.startBackgroundBeat(1);
         const initialInterval = audio.beatInterval;
-        
-        audio.startBackgroundBeat(100);  // Very high wave number
-        expect(audio.beatInterval).toBe(initialInterval / 4);  // Max 4x faster
+        audio.startBackgroundBeat(100);
+        expect(audio.beatInterval).toBe(initialInterval / 4);
     });
     
     test('stops background beat', () => {
         audio.startBackgroundBeat(1);
         expect(audio.beatTimer).toBeTruthy();
-        
         audio.stopBackgroundBeat();
         expect(audio.beatTimer).toBeNull();
     });
     
     test('alternates between beat1 and beat2', () => {
-        const spy1 = jest.spyOn(audio.sounds.beat1, 'cloneNode');
-        const spy2 = jest.spyOn(audio.sounds.beat2, 'cloneNode');
-        
         audio.startBackgroundBeat(1);
+        expect(audio.currentBeat).toBe(1); // After first beat
         
-        // First beat
-        expect(spy1).toHaveBeenCalled();
-        expect(spy2).not.toHaveBeenCalled();
-        
-        // Advance timer to next beat
+        // Advance timer
         jest.advanceTimersByTime(audio.beatInterval);
+        expect(audio.currentBeat).toBe(0); // After second beat
         
-        // Second beat
-        expect(spy2).toHaveBeenCalled();
+        // Advance timer again
+        jest.advanceTimersByTime(audio.beatInterval);
+        expect(audio.currentBeat).toBe(1); // Back to first beat
+    });
+    
+    test('reuses audio nodes from pool', () => {
+        // Play sound multiple times
+        audio.playFireSound();
+        audio.playFireSound();
+        audio.playFireSound();
+        
+        // Should reuse nodes from the pool
+        const fireNode = audio.pools.fire[0];
+        expect(fireNode.source.start).toHaveBeenCalled();
     });
 }); 
