@@ -398,7 +398,7 @@ export default class Game {
         this.checkExtraLife();
 
         // Create new asteroids based on size if not in game over
-        if (!this.gameOverPending && !this.gameOver && !this.gameOverPending) {
+        if (!this.gameOverPending && !this.gameOver) {
             if (asteroid.size === 'large') {
                 for (let i = 0; i < 2; i++) {
                     this.asteroids.push(new Asteroid(
@@ -422,6 +422,7 @@ export default class Game {
                     ));
                 }
             }
+            // Small asteroids don't create new asteroids when destroyed
         }
 
         // Remove the original asteroid
