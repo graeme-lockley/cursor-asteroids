@@ -77,7 +77,10 @@ const mockContext = {
     stroke: jest.fn(),
     fill: jest.fn(),
     fillRect: jest.fn(),
-    arc: jest.fn()
+    arc: jest.fn(),
+    fillText: jest.fn(),
+    font: '',
+    textAlign: 'left'
 };
 
 describe('Game', () => {
@@ -137,6 +140,14 @@ describe('Game', () => {
     });
     
     describe('collision handling', () => {
+        beforeEach(() => {
+            jest.useFakeTimers();
+        });
+
+        afterEach(() => {
+            jest.useRealTimers();
+        });
+
         test('splits asteroid when hit by ship', () => {
             // Set up initial state
             game.asteroids = [new Asteroid(400, 300, 'large')];
@@ -152,6 +163,58 @@ describe('Game', () => {
             expect(game.asteroids.length).toBe(2);  // Two medium asteroids
             expect(game.asteroids.filter(a => a.size === 'medium').length).toBe(2);
             expect(game.asteroids.filter(a => a.size === 'large').length).toBe(0);
+        });
+        
+        test('hides ship immediately when last life is lost', () => {
+            // Set up game with one life
+            game.lives = 1;
+            game.asteroids = [new Asteroid(400, 300, 'large')];
+            
+            // Force fatal collision
+            game.ship.x = game.asteroids[0].x;
+            game.ship.y = game.asteroids[0].y;
+            game.ship.isInvulnerable = false;
+            
+            // Update game to trigger collision
+            game.checkCollisions();
+            
+            // Ship should be in pending game over state
+            expect(game.gameOverPending).toBe(true);
+            expect(game.lives).toBe(0);
+            
+            // Render and check that ship is not drawn
+            const renderSpy = jest.spyOn(game.ship, 'render');
+            game.render();
+            expect(renderSpy).not.toHaveBeenCalled();
+        });
+        
+        test('keeps ship hidden during game over delay', () => {
+            // Set up game with one life
+            game.lives = 1;
+            game.asteroids = [new Asteroid(400, 300, 'large')];
+            
+            // Force fatal collision
+            game.ship.x = game.asteroids[0].x;
+            game.ship.y = game.asteroids[0].y;
+            game.ship.isInvulnerable = false;
+            
+            // Update game to trigger collision
+            game.checkCollisions();
+            
+            // Ship should be hidden immediately
+            const renderSpy = jest.spyOn(game.ship, 'render');
+            game.render();
+            expect(renderSpy).not.toHaveBeenCalled();
+            expect(game.gameOverPending).toBe(true);
+            expect(game.gameOver).toBe(false);
+            
+            // Advance timer to complete the delay
+            jest.advanceTimersByTime(3000);
+            
+            // Ship should still be hidden and game should be over
+            game.render();
+            expect(renderSpy).not.toHaveBeenCalled();
+            expect(game.gameOver).toBe(true);
         });
         
         test('destroys small asteroid without splitting', () => {
@@ -181,8 +244,13 @@ describe('Game', () => {
             
             game.checkCollisions();
             
-            // Should start new wave
+            // Should increment wave number
             expect(game.wave).toBe(initialWave + 1);
+            
+            // Advance timer to allow new wave to be created
+            jest.advanceTimersByTime(3000);
+            
+            // Should have created new asteroids
             expect(game.asteroids.length).toBeGreaterThan(0);
         });
         

@@ -12,6 +12,7 @@ class CanvasRenderingContext2D {
     fill() {}
     arc() {}
     fillRect() {}
+    fillText() {}
 }
 
 class HTMLCanvasElement {
