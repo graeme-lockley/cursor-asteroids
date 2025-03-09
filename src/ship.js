@@ -181,5 +181,6 @@ export default class Ship {
         // Reset combat state
         this.isInvulnerable = true;
         this.invulnerabilityTimer = 0;
+        this.shootTimer = 0;  // Reset shoot timer when resetting ship
     }
 } 

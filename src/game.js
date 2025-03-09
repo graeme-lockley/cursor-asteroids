@@ -68,14 +68,6 @@ export default class Game {
         // Set up input handling
         setupInput();
         
-        // Add keydown listener for game over restart
-        window.addEventListener('keydown', (e) => {
-            if (this.gameOver) {
-                this.reset();
-                document.getElementById('game-over-screen').classList.remove('visible');
-            }
-        });
-        
         // Initialize audio on first user interaction
         const startAudio = () => {
             // Resume audio context
@@ -109,18 +101,7 @@ export default class Game {
     }
     
     gameLoop() {
-        // Always update asteroids even when game is over
-        if (this.gameOver) {
-            // Update asteroids only
-            const currentTime = performance.now();
-            const deltaTime = (currentTime - this.lastTime) / 1000;
-            this.lastTime = currentTime;
-            
-            this.asteroids.forEach(asteroid => asteroid.update(deltaTime, this.canvas.width, this.canvas.height));
-            
-            // Render everything
-            this.render();
-        } else if (!this.paused) {
+        if (!this.paused && !this.gameOver) {
             this.update();
             this.render();
         }
