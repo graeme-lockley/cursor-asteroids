@@ -15,6 +15,7 @@ export default class Game {
         this.context = canvas.getContext('2d');
         this.isTestMode = isTestMode;
         this.lastTime = performance.now();
+        this.gameOverTimer = null;  // Add timer for delayed game over
         
         // Initialize game state
         this.reset();
@@ -31,6 +32,11 @@ export default class Game {
         this.score = 0;
         this.lives = 3;
         this.gameOver = false;
+        this.gameOverPending = false;  // Add pending state for delayed game over
+        if (this.gameOverTimer) {
+            clearTimeout(this.gameOverTimer);
+            this.gameOverTimer = null;
+        }
         this.paused = false;
         this.wave = 1;
         this.initialAsteroidCount = 0;
@@ -138,17 +144,19 @@ export default class Game {
     }
     
     update() {
-        // Update ship with input and delta time
         const deltaTime = (performance.now() - this.lastTime) / 1000;
         
-        this.ship.update(deltaTime, keys, this.canvas.width, this.canvas.height);
-        
-        // Handle shooting
-        if (keys.space && this.ship.shootTimer <= 0) {
-            const bullet = this.ship.shoot();
-            if (bullet) {
-                this.bullets.push(bullet);
-                this.audio.playFireSound();
+        // Only update ship if not in game over pending state
+        if (!this.gameOverPending) {
+            this.ship.update(deltaTime, keys, this.canvas.width, this.canvas.height);
+            
+            // Handle shooting
+            if (keys.space && this.ship.shootTimer <= 0) {
+                const bullet = this.ship.shoot();
+                if (bullet) {
+                    this.bullets.push(bullet);
+                    this.audio.playFireSound();
+                }
             }
         }
         
@@ -179,8 +187,9 @@ export default class Game {
         // Render game objects
         if (!this.gameOver) {
             this.ship.render(this.context);
-            this.bullets.forEach(bullet => bullet.render(this.context));
         }
+        // Always render bullets and asteroids
+        this.bullets.forEach(bullet => bullet.render(this.context));
         this.asteroids.forEach(asteroid => asteroid.render(this.context));
         
         // Update HUD
@@ -199,7 +208,7 @@ export default class Game {
     }
     
     checkCollisions() {
-        // Check bullet-asteroid collisions
+        // Always check bullet-asteroid collisions
         this.bullets.forEach(bullet => {
             this.asteroids.forEach((asteroid, index) => {
                 if (checkCollision(bullet, asteroid)) {
@@ -209,8 +218,8 @@ export default class Game {
             });
         });
         
-        // Check ship-asteroid collisions if ship is not invulnerable
-        if (!this.ship.isInvulnerable) {
+        // Only check ship collisions if not in game over pending state
+        if (!this.gameOverPending && !this.ship.isInvulnerable) {
             this.asteroids.forEach((asteroid, index) => {
                 if (checkCollision(this.ship, asteroid)) {
                     this.lives--;
@@ -218,11 +227,16 @@ export default class Game {
                     this.handleAsteroidDestruction(index);
                     
                     if (this.lives <= 0) {
-                        this.gameOver = true;
-                        // Stop all sounds when game is over
-                        this.audio.stopAllSounds();
-                        document.getElementById('game-over-screen').classList.add('visible');
-                        document.getElementById('final-score').textContent = this.score;
+                        this.gameOverPending = true;  // Enter pending state
+                        this.ship.isInvulnerable = true;  // Make ship invulnerable during pending state
+                        
+                        // Set timer for actual game over
+                        this.gameOverTimer = setTimeout(() => {
+                            this.gameOver = true;
+                            this.audio.stopAllSounds();
+                            document.getElementById('game-over-screen').classList.add('visible');
+                            document.getElementById('final-score').textContent = this.score;
+                        }, 3000);
                     }
                 }
             });
