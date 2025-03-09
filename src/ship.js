@@ -6,7 +6,7 @@ const THRUST_POWER = 200; // pixels per second squared
 const FRICTION = 0.99; // velocity multiplier per frame
 const MAX_SPEED = 400; // pixels per second
 const BULLET_SPEED = 500; // pixels per second
-const SHOOT_DELAY = 0.25; // seconds
+const SHOOT_DELAY = 0.20; // seconds
 const INVULNERABILITY_TIME = 2; // seconds
 
 export default class Ship {
@@ -20,6 +20,7 @@ export default class Ship {
         // Movement
         this.velocity = { x: 0, y: 0 };
         this.thrust = false;
+        this.prevThrust = false;  // Track previous thrust state
         
         // Visual
         this.radius = 15;
@@ -48,6 +49,7 @@ export default class Ship {
     }
     
     handleThrust(deltaTime, keys) {
+        this.prevThrust = this.thrust;  // Store previous thrust state
         this.thrust = keys.up;
         
         if (this.thrust) {

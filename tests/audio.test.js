@@ -67,6 +67,7 @@ describe('AudioManager', () => {
         expect(audio.pools.bangLarge).toBeDefined();
         expect(audio.pools.bangMedium).toBeDefined();
         expect(audio.pools.bangSmall).toBeDefined();
+        expect(audio.pools.thrust).toBeDefined();
         
         // Check that each pool has the correct number of nodes
         expect(audio.pools.beat1.length).toBe(2);
@@ -75,6 +76,7 @@ describe('AudioManager', () => {
         expect(audio.pools.bangLarge.length).toBe(4);
         expect(audio.pools.bangMedium.length).toBe(4);
         expect(audio.pools.bangSmall.length).toBe(4);
+        expect(audio.pools.thrust.length).toBe(2);
     });
     
     test('plays fire sound', () => {
@@ -96,14 +98,21 @@ describe('AudioManager', () => {
     
     test('background beat speeds up with wave number', () => {
         const initialInterval = audio.beatInterval;
-        audio.startBackgroundBeat(2);
+        
+        // Update beat interval with some remaining asteroids
+        audio.updateBeatInterval(5, 10);  // 50% through the wave
+        
         expect(audio.beatInterval).toBeLessThan(initialInterval);
     });
     
     test('background beat has maximum speed', () => {
         const initialInterval = audio.beatInterval;
-        audio.startBackgroundBeat(100);
-        expect(audio.beatInterval).toBe(initialInterval / 4);
+        
+        // Update beat interval with no asteroids left
+        audio.updateBeatInterval(0, 10);  // 100% through the wave
+        
+        // Should be at minimum interval
+        expect(audio.beatInterval).toBe(audio.minInterval);
     });
     
     test('stops background beat', () => {
@@ -135,5 +144,29 @@ describe('AudioManager', () => {
         // Should reuse nodes from the pool
         const fireNode = audio.pools.fire[0];
         expect(fireNode.source.start).toHaveBeenCalled();
+    });
+    
+    test('plays and stops thrust sound', () => {
+        // Play thrust sound
+        audio.playThrustSound();
+        const thrustNode = audio.pools.thrust[0];
+        expect(thrustNode.source.start).toHaveBeenCalled();
+        
+        // Stop thrust sound
+        audio.stopThrustSound();
+        expect(thrustNode.source.stop).toHaveBeenCalled();
+        expect(thrustNode.isPlaying).toBe(false);
+    });
+    
+    test('thrust sound can be played multiple times', () => {
+        // Play thrust sound twice
+        audio.playThrustSound();
+        audio.playThrustSound();
+        
+        // Both nodes in the pool should have been used
+        const firstNode = audio.pools.thrust[0];
+        const secondNode = audio.pools.thrust[1];
+        expect(firstNode.source.start).toHaveBeenCalled();
+        expect(secondNode.source.start).toHaveBeenCalled();
     });
 }); 

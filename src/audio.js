@@ -16,7 +16,8 @@ export default class AudioManager {
             bangLarge: [],
             bangMedium: [],
             bangSmall: [],
-            waveEnd: []
+            waveEnd: [],
+            thrust: []  // Add thrust sound pool
         };
         
         // Pool configuration
@@ -27,7 +28,8 @@ export default class AudioManager {
             bangLarge: { url: 'sounds/bang-large.wav', size: 4 },
             bangMedium: { url: 'sounds/bang-medium.wav', size: 4 },
             bangSmall: { url: 'sounds/bang-small.wav', size: 4 },
-            waveEnd: { url: 'sounds/wave-end.wav', size: 2 }
+            waveEnd: { url: 'sounds/wave-end.wav', size: 2 },
+            thrust: { url: 'sounds/thrust.wav', size: 2 }  // Add thrust sound config
         };
         
         this.baseInterval = 1000;  // Base interval in ms (slowest)
@@ -35,6 +37,7 @@ export default class AudioManager {
         this.beatInterval = this.baseInterval;
         this.beatTimer = null;
         this.currentBeat = 0;
+        this.thrustTimer = null;  // Add timer for thrust sound loop
         
         // Initialize audio
         if (!isTest) {
@@ -156,6 +159,62 @@ export default class AudioManager {
         this.playSound('fire');
     }
     
+    playThrustSound() {
+        // Clear any existing thrust timer
+        if (this.thrustTimer) {
+            clearInterval(this.thrustTimer);
+        }
+
+        const playThrustLoop = () => {
+            const pool = this.pools.thrust;
+            if (!pool) return;
+            
+            const node = this.getAvailableNode(pool);
+            if (!node) return;
+            
+            if (this.context) {
+                // Create new source (sources can only be played once)
+                node.source = this.context.createBufferSource();
+                node.source.buffer = this.buffers.thrust;
+                node.source.connect(node.gainNode);
+            }
+            
+            node.isPlaying = true;
+            node.startTime = this.context ? this.context.currentTime : Date.now() / 1000;
+            
+            node.source.onended = () => {
+                node.isPlaying = false;
+            };
+            
+            node.source.start(0);
+        };
+
+        // Play first thrust sound immediately
+        playThrustLoop();
+
+        // Set up interval to play thrust sound repeatedly
+        // The interval should be slightly shorter than the sound duration to ensure smooth looping
+        this.thrustTimer = setInterval(playThrustLoop, 200);  // Adjust this value based on your thrust.wav duration
+    }
+    
+    stopThrustSound() {
+        // Clear the thrust timer
+        if (this.thrustTimer) {
+            clearInterval(this.thrustTimer);
+            this.thrustTimer = null;
+        }
+
+        const pool = this.pools.thrust;
+        if (!pool) return;
+        
+        pool.forEach(node => {
+            if (node.isPlaying) {
+                node.source.stop();
+                node.isPlaying = false;
+            }
+        });
+    }
+    
     playBangSound(size) {
         switch (size) {
             case 'large':
@@ -224,8 +283,9 @@ export default class AudioManager {
     }
 
     stopAllSounds() {
-        // Stop background beat
+        // Stop background beat and thrust sound
         this.stopBackgroundBeat();
+        this.stopThrustSound();
         
         // Stop all currently playing sounds
         if (this.context) {
@@ -243,7 +303,10 @@ export default class AudioManager {
         const progress = 1 - (remainingAsteroids / totalAsteroids);
         
         // Calculate new interval, interpolating between base and min intervals
-        this.beatInterval = this.baseInterval - (progress * (this.baseInterval - this.minInterval));
+        this.beatInterval = Math.max(
+            this.minInterval,
+            this.baseInterval - (progress * (this.baseInterval - this.minInterval))
+        );
         
         // If we're currently playing beats, restart with new interval
         if (this.beatTimer) {

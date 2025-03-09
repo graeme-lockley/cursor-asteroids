@@ -43,6 +43,34 @@ describe('Ship', () => {
             expect(ship.angle).toBeGreaterThan(0);
         });
         
+        test('tracks thrust state changes correctly', () => {
+            // Initial state
+            expect(ship.thrust).toBe(false);
+            expect(ship.prevThrust).toBe(false);
+            
+            // Apply thrust
+            const keysThrust = { left: false, right: false, up: true, space: false };
+            ship.update(0.1, keysThrust, width, height);
+            expect(ship.thrust).toBe(true);
+            expect(ship.prevThrust).toBe(false);
+            
+            // Keep thrust on
+            ship.update(0.1, keysThrust, width, height);
+            expect(ship.thrust).toBe(true);
+            expect(ship.prevThrust).toBe(true);
+            
+            // Release thrust
+            const keysNoThrust = { left: false, right: false, up: false, space: false };
+            ship.update(0.1, keysNoThrust, width, height);
+            expect(ship.thrust).toBe(false);
+            expect(ship.prevThrust).toBe(true);
+            
+            // Keep thrust off
+            ship.update(0.1, keysNoThrust, width, height);
+            expect(ship.thrust).toBe(false);
+            expect(ship.prevThrust).toBe(false);
+        });
+        
         test('applies thrust when up key is pressed', () => {
             const keys = { left: false, right: false, up: true, space: false };
             ship.angle = Math.PI / 2; // Pointing down

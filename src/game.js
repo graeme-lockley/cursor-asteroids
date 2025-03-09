@@ -4,6 +4,15 @@ import { checkCollision } from './collision.js';
 import { setupInput, keys } from './input.js';
 import AudioManager from './audio.js';
 
+// Game constants
+const GAME_SETTINGS = {
+    INITIAL_LIVES: 3,
+    GAME_OVER_DELAY: 3000,
+    WAVE_CREATION_DELAY: 3000,
+    BACKGROUND_BEAT_DELAY: 500,
+    BASE_ASTEROIDS: 3
+};
+
 export default class Game {
     constructor(canvas, isTestMode = false) {
         console.log('Game constructor called with canvas:', {
@@ -15,7 +24,7 @@ export default class Game {
         this.context = canvas.getContext('2d');
         this.isTestMode = isTestMode;
         this.lastTime = performance.now();
-        this.gameOverTimer = null;  // Add timer for delayed game over
+        this.gameOverTimer = null;
         
         // Initialize game state
         this.reset();
@@ -30,16 +39,15 @@ export default class Game {
     
     reset() {
         this.score = 0;
-        this.lives = 3;
+        this.lives = GAME_SETTINGS.INITIAL_LIVES;
         this.gameOver = false;
-        this.gameOverPending = false;  // Add pending state for delayed game over
-        if (this.gameOverTimer) {
-            clearTimeout(this.gameOverTimer);
-            this.gameOverTimer = null;
-        }
+        this.gameOverPending = false;
+        this.clearGameOverTimer();
         this.paused = false;
         this.wave = 1;
         this.initialAsteroidCount = 0;
+        
+        // Create game objects
         this.ship = new Ship(this.canvas.width / 2, this.canvas.height / 2);
         this.asteroids = [];
         this.bullets = [];
@@ -47,6 +55,13 @@ export default class Game {
         
         // Create initial asteroids
         this.createNewWave();
+    }
+    
+    clearGameOverTimer() {
+        if (this.gameOverTimer) {
+            clearTimeout(this.gameOverTimer);
+            this.gameOverTimer = null;
+        }
     }
     
     resize() {
@@ -76,31 +91,14 @@ export default class Game {
         setupInput();
         
         // Add keydown listener for game over restart
-        window.addEventListener('keydown', (e) => {
+        window.addEventListener('keydown', () => {
             if (this.gameOver) {
                 this.reset();
                 document.getElementById('game-over-screen').classList.remove('visible');
             }
         });
         
-        // Initialize audio on first user interaction
-        const startAudio = () => {
-            // Resume audio context
-            this.audio.context.resume().then(() => {
-                // Start background beat
-                this.audio.startBackgroundBeat(this.wave);
-                
-                // Remove event listeners
-                document.removeEventListener('keydown', startAudio);
-                document.removeEventListener('click', startAudio);
-                document.removeEventListener('touchstart', startAudio);
-            });
-        };
-        
-        // Add event listeners for user interaction
-        document.addEventListener('keydown', startAudio);
-        document.addEventListener('click', startAudio);
-        document.addEventListener('touchstart', startAudio);
+        this.setupAudioHandling();
         
         console.log('Starting game loop...');
         
@@ -108,6 +106,32 @@ export default class Game {
         if (!this.isTestMode) {
             this.gameLoop();
         }
+    }
+    
+    setupAudioHandling() {
+        const startAudio = () => {
+            if (this.isTestMode) {
+                // In test mode, just start the background beat
+                this.audio.startBackgroundBeat(this.wave);
+                this.removeAudioListeners(startAudio);
+            } else {
+                this.audio.context.resume().then(() => {
+                    this.audio.startBackgroundBeat(this.wave);
+                    this.removeAudioListeners(startAudio);
+                });
+            }
+        };
+        
+        // Add event listeners for user interaction
+        document.addEventListener('keydown', startAudio);
+        document.addEventListener('click', startAudio);
+        document.addEventListener('touchstart', startAudio);
+    }
+    
+    removeAudioListeners(handler) {
+        document.removeEventListener('keydown', handler);
+        document.removeEventListener('click', handler);
+        document.removeEventListener('touchstart', handler);
     }
     
     stop() {
@@ -123,19 +147,9 @@ export default class Game {
         
         if (!this.paused) {
             if (!this.gameOver) {
-                // Full update when game is running
                 this.update(deltaTime);
             } else {
-                // Only update asteroid positions when game is over
-                this.asteroids.forEach(asteroid => asteroid.update(deltaTime, this.canvas.width, this.canvas.height));
-                
-                // Keep wrapping asteroids around screen edges
-                this.asteroids.forEach(asteroid => {
-                    if (asteroid.x < 0) asteroid.x = this.canvas.width;
-                    if (asteroid.x > this.canvas.width) asteroid.x = 0;
-                    if (asteroid.y < 0) asteroid.y = this.canvas.height;
-                    if (asteroid.y > this.canvas.height) asteroid.y = 0;
-                });
+                this.updateGameOver(deltaTime);
             }
             this.render();
         }
@@ -143,76 +157,97 @@ export default class Game {
         requestAnimationFrame(() => this.gameLoop());
     }
     
-    update(deltaTime) {
-        // Only update ship if not in game over pending state
-        if (!this.gameOverPending && !this.gameOver) {
-            // Store previous thrust state
-            const prevThrust = this.ship.thrust;
-            
-            this.ship.update(deltaTime, keys, this.canvas.width, this.canvas.height);
-            
-            // Handle thrust sound
-            if (this.ship.thrust && !prevThrust) {
-                this.audio.playThrustSound();
-            } else if (!this.ship.thrust && prevThrust) {
-                this.audio.stopThrustSound();
-            }
-            
-            // Handle shooting
-            if (keys.space && this.ship.shootTimer <= 0) {
-                const bullet = this.ship.shoot();
-                if (bullet) {
-                    this.bullets.push(bullet);
-                    this.audio.playFireSound();
-                }
-            }
-        }
-        
-        // Update bullets
-        this.bullets = this.bullets.filter(bullet => !bullet.isDead);
-        this.bullets.forEach(bullet => bullet.update(deltaTime, this.canvas.width, this.canvas.height));
-        
-        // Update asteroids
-        this.asteroids.forEach(asteroid => asteroid.update(deltaTime, this.canvas.width, this.canvas.height));
-        
-        // Check for collisions
-        this.checkCollisions();
-        
-        // Wrap objects around screen edges
-        [this.ship, ...this.bullets, ...this.asteroids].forEach(obj => {
-            if (obj.x < 0) obj.x = this.canvas.width;
-            if (obj.x > this.canvas.width) obj.x = 0;
-            if (obj.y < 0) obj.y = this.canvas.height;
-            if (obj.y > this.canvas.height) obj.y = 0;
+    updateGameOver(deltaTime) {
+        // Only update and wrap asteroids during game over
+        this.asteroids.forEach(asteroid => {
+            asteroid.update(deltaTime, this.canvas.width, this.canvas.height);
+            this.wrapObject(asteroid);
         });
     }
     
+    wrapObject(obj) {
+        if (obj.x < 0) obj.x = this.canvas.width;
+        if (obj.x > this.canvas.width) obj.x = 0;
+        if (obj.y < 0) obj.y = this.canvas.height;
+        if (obj.y > this.canvas.height) obj.y = 0;
+    }
+    
+    update(deltaTime) {
+        this.updateShip(deltaTime);
+        this.updateBullets(deltaTime);
+        this.updateAsteroids(deltaTime);
+        this.checkCollisions();
+        
+        // Wrap all objects around screen edges
+        [this.ship, ...this.bullets, ...this.asteroids].forEach(obj => this.wrapObject(obj));
+    }
+    
+    updateShip(deltaTime) {
+        if (this.gameOverPending || this.gameOver) return;
+        
+        const prevThrust = this.ship.thrust;
+        this.ship.update(deltaTime, keys, this.canvas.width, this.canvas.height);
+        
+        // Handle thrust sound
+        if (this.ship.thrust && !prevThrust) {
+            this.audio.playThrustSound();
+        } else if (!this.ship.thrust && prevThrust) {
+            this.audio.stopThrustSound();
+        }
+        
+        // Handle shooting
+        if (keys.space && this.ship.shootTimer <= 0) {
+            const bullet = this.ship.shoot();
+            if (bullet) {
+                this.bullets.push(bullet);
+                this.audio.playFireSound();
+            }
+        }
+    }
+    
+    updateBullets(deltaTime) {
+        this.bullets = this.bullets.filter(bullet => !bullet.isDead);
+        this.bullets.forEach(bullet => bullet.update(deltaTime, this.canvas.width, this.canvas.height));
+    }
+    
+    updateAsteroids(deltaTime) {
+        this.asteroids.forEach(asteroid => asteroid.update(deltaTime, this.canvas.width, this.canvas.height));
+    }
+    
     render() {
-        // Clear canvas
+        this.clearCanvas();
+        this.renderGameObjects();
+        this.renderHUD();
+        if (this.gameOver) {
+            this.renderGameOver();
+        }
+    }
+    
+    clearCanvas() {
         this.context.fillStyle = 'black';
         this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Render game objects
+    }
+    
+    renderGameObjects() {
         if (!this.gameOver && !this.gameOverPending) {
             this.ship.render(this.context);
         }
-        // Always render bullets and asteroids
         this.bullets.forEach(bullet => bullet.render(this.context));
         this.asteroids.forEach(asteroid => asteroid.render(this.context));
-        
-        // Update HUD
+    }
+    
+    renderHUD() {
         document.getElementById('score').textContent = this.score;
         document.getElementById('lives').textContent = this.lives;
-        
-        // Render game over text
-        if (this.gameOver) {
-            this.context.fillStyle = 'white';
-            this.context.font = '48px Arial';
-            this.context.textAlign = 'center';
-            this.context.fillText('GAME OVER', this.canvas.width / 2, this.canvas.height / 2 - 50);
-            this.context.font = '24px Arial';
-            this.context.fillText('Press Any Key to Play Again', this.canvas.width / 2, this.canvas.height / 2 + 50);
-        }
+    }
+    
+    renderGameOver() {
+        this.context.fillStyle = 'white';
+        this.context.font = '48px Arial';
+        this.context.textAlign = 'center';
+        this.context.fillText('GAME OVER', this.canvas.width / 2, this.canvas.height / 2 - 50);
+        this.context.font = '24px Arial';
+        this.context.fillText('Press Any Key to Play Again', this.canvas.width / 2, this.canvas.height / 2 + 50);
     }
     
     checkCollisions() {
@@ -226,23 +261,21 @@ export default class Game {
             });
         });
         
-        // Only check ship collisions if not in game over pending state
-        if (!this.gameOverPending && !this.ship.isInvulnerable) {
+        // Check ship-asteroid collisions if ship is not invulnerable
+        if (!this.ship.isInvulnerable && !this.gameOver) {
             this.asteroids.forEach((asteroid, index) => {
                 if (checkCollision(this.ship, asteroid)) {
                     this.lives--;
+                    this.ship.isInvulnerable = true;
                     
                     if (this.lives <= 0) {
-                        this.gameOverPending = true;  // Enter pending state
-                        this.ship.isInvulnerable = true;  // Make ship invulnerable during pending state
-                        
-                        // Set timer for actual game over
-                        this.gameOverTimer = setTimeout(() => {
+                        this.gameOverPending = true;
+                        this.ship.visible = false;
+                        setTimeout(() => {
                             this.gameOver = true;
-                            this.audio.stopAllSounds();
+                            this.gameOverPending = false;
                             document.getElementById('game-over-screen').classList.add('visible');
-                            document.getElementById('final-score').textContent = this.score;
-                        }, 3000);
+                        }, GAME_SETTINGS.GAME_OVER_DELAY);
                     } else {
                         // Only reset ship position if player still has lives
                         this.ship.reset(this.canvas.width / 2, this.canvas.height / 2);
@@ -315,8 +348,8 @@ export default class Game {
                 // to ensure the wave end sound has finished
                 setTimeout(() => {
                     this.audio.startBackgroundBeat(this.wave);
-                }, 500);  // 0.5 second delay after wave creation
-            }, 3000);  // 3 second delay
+                }, GAME_SETTINGS.BACKGROUND_BEAT_DELAY);
+            }, GAME_SETTINGS.WAVE_CREATION_DELAY);
         }
     }
     
@@ -325,7 +358,7 @@ export default class Game {
         this.asteroids = [];
         
         // Create new asteroids based on wave number
-        const numAsteroids = 3 + this.wave;  // Increase asteroids with each wave
+        const numAsteroids = GAME_SETTINGS.BASE_ASTEROIDS + this.wave;  // Increase asteroids with each wave
         this.initialAsteroidCount = numAsteroids;  // Store initial count
         
         for (let i = 0; i < numAsteroids; i++) {

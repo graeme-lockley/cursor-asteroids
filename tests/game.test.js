@@ -6,6 +6,15 @@ import Game from '../src/game.js';
 import Ship from '../src/ship.js';
 import Asteroid from '../src/asteroid.js';
 
+// Game constants
+const GAME_SETTINGS = {
+    INITIAL_LIVES: 3,
+    GAME_OVER_DELAY: 3000,
+    WAVE_CREATION_DELAY: 3000,
+    BACKGROUND_BEAT_DELAY: 500,
+    BASE_ASTEROIDS: 3
+};
+
 // Mock Web Audio API
 class MockAudioContext {
     constructor() {
@@ -414,6 +423,164 @@ describe('Game', () => {
             game.update(0.016);
             
             expect(playThrustSpy).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('initialization', () => {
+        test('initializes with correct canvas dimensions', () => {
+            expect(game.canvas.width).toBe(800);
+            expect(game.canvas.height).toBe(600);
+        });
+
+        test('initializes audio on user interaction', async () => {
+            // Create a new game instance to ensure clean audio state
+            const testGame = new Game(canvas, true);
+            
+            // Mock the audio context and its methods
+            testGame.audio.context = {
+                resume: jest.fn().mockResolvedValue(undefined),
+                createBufferSource: jest.fn().mockReturnValue({
+                    connect: jest.fn(),
+                    start: jest.fn(),
+                    buffer: null
+                })
+            };
+            
+            const startBeatSpy = jest.spyOn(testGame.audio, 'startBackgroundBeat');
+            
+            // Simulate user interaction
+            document.dispatchEvent(new KeyboardEvent('keydown'));
+            
+            // Wait for promises to resolve
+            await new Promise(resolve => setTimeout(resolve, 0));
+            
+            expect(startBeatSpy).toHaveBeenCalledWith(1);
+        });
+    });
+
+    describe('game state management', () => {
+        test('pauses and resumes game correctly', () => {
+            const stopBeatSpy = jest.spyOn(game.audio, 'stopBackgroundBeat');
+            
+            expect(game.paused).toBe(false);
+            game.stop();
+            expect(game.paused).toBe(true);
+            expect(stopBeatSpy).toHaveBeenCalled();
+        });
+
+        test('handles screen wrapping correctly', () => {
+            // Test ship wrapping
+            game.ship.x = -10;
+            game.ship.y = -10;
+            game.wrapObject(game.ship);
+            expect(game.ship.x).toBe(game.canvas.width);
+            expect(game.ship.y).toBe(game.canvas.height);
+
+            // Test bullet wrapping
+            const bullet = game.ship.shoot();
+            if (bullet) {
+                bullet.x = game.canvas.width + 10;
+                bullet.y = game.canvas.height + 10;
+                game.wrapObject(bullet);
+                expect(bullet.x).toBe(0);
+                expect(bullet.y).toBe(0);
+            }
+        });
+
+        test('handles resize correctly', () => {
+            const originalWidth = game.canvas.width;
+            const originalHeight = game.canvas.height;
+            
+            // Simulate resize
+            canvas.getBoundingClientRect = jest.fn().mockReturnValue({
+                width: 1024,
+                height: 768
+            });
+            game.resize();
+            
+            expect(game.canvas.width).toBe(1024);
+            expect(game.canvas.height).toBe(768);
+            
+            // Ship should stay within bounds
+            expect(game.ship.x).toBeLessThanOrEqual(game.canvas.width);
+            expect(game.ship.y).toBeLessThanOrEqual(game.canvas.height);
+        });
+    });
+
+    describe('game over state transitions', () => {
+        beforeEach(() => {
+            // Mock game over screen element with classList
+            document.body.innerHTML = '<div id="game-over-screen"></div>';
+            const gameOverScreen = document.getElementById('game-over-screen');
+            gameOverScreen.classList = {
+                add: jest.fn(),
+                remove: jest.fn(),
+                contains: jest.fn().mockImplementation(className => className === 'visible' ? false : false)
+            };
+            
+            // Initialize game
+            game = new Game(canvas, true);
+            game.init();
+            
+            // Mock asteroids for collision
+            game.asteroids = [{
+                x: 100,
+                y: 100,
+                radius: 10,
+                size: 'large',
+                velocity: { x: 0, y: 0 }
+            }];
+            game.ship.lives = 1;
+            game.ship.isInvulnerable = false;
+            
+            // Use fake timers
+            jest.useFakeTimers();
+        });
+
+        afterEach(() => {
+            jest.useRealTimers();
+        });
+
+        test('transitions through game over states correctly', () => {
+            // Force fatal collision
+            game.ship.x = game.asteroids[0].x;
+            game.ship.y = game.asteroids[0].y;
+            
+            // Check initial state
+            expect(game.gameOver).toBe(false);
+            expect(game.gameOverPending).toBe(false);
+            
+            // Trigger collision
+            game.checkCollisions();
+            
+            // Should be in pending state
+            expect(game.gameOver).toBe(false);
+            expect(game.gameOverPending).toBe(true);
+            expect(game.ship.isInvulnerable).toBe(true);
+            
+            // Advance timer
+            jest.advanceTimersByTime(GAME_SETTINGS.GAME_OVER_DELAY);
+            
+            // Should be in game over state
+            expect(game.gameOver).toBe(true);
+            expect(document.getElementById('game-over-screen').classList.contains('visible')).toBe(true);
+            
+            // Test game restart
+            document.dispatchEvent(new KeyboardEvent('keydown'));
+            expect(game.gameOver).toBe(false);
+            expect(document.getElementById('game-over-screen').classList.contains('visible')).toBe(false);
+        });
+
+        test('clears game over timer on reset', () => {
+            const clearTimeoutSpy = jest.spyOn(window, 'clearTimeout');
+            
+            // Set up game over timer
+            game.gameOverTimer = setTimeout(() => {}, 1000);
+            
+            game.reset();
+            
+            expect(clearTimeoutSpy).toHaveBeenCalled();
+            expect(game.gameOverTimer).toBeNull();
         });
     });
 }); 
