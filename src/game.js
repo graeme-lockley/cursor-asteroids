@@ -183,7 +183,7 @@ export default class Game {
         this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
         // Render game objects
-        if (!this.gameOver) {
+        if (!this.gameOver && !this.gameOverPending) {
             this.ship.render(this.context);
         }
         // Always render bullets and asteroids
