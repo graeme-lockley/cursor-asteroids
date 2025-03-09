@@ -126,12 +126,16 @@ export default class Game {
     setupAudioHandling() {
         const startAudio = () => {
             if (this.isTestMode) {
-                // In test mode, just start the background beat
-                this.audio.startBackgroundBeat(this.wave);
+                // In test mode, just start the background beat if not game over
+                if (!this.gameOver && !this.gameOverPending) {
+                    this.audio.startBackgroundBeat(this.wave);
+                }
                 this.removeAudioListeners(startAudio);
             } else {
                 this.audio.context.resume().then(() => {
-                    this.audio.startBackgroundBeat(this.wave);
+                    if (!this.gameOver && !this.gameOverPending) {
+                        this.audio.startBackgroundBeat(this.wave);
+                    }
                     this.removeAudioListeners(startAudio);
                 });
             }
@@ -286,6 +290,7 @@ export default class Game {
                         this.gameOverPending = true;
                         this.ship.visible = false;
                         this.ship.isInvulnerable = true;
+                        this.audio.stopBackgroundBeat(); // Only stop background beat, let other sounds finish naturally
                         setTimeout(() => {
                             this.gameOver = true;
                             this.gameOverPending = false;
@@ -308,7 +313,7 @@ export default class Game {
     }
     
     handleAsteroidDestruction(asteroid) {
-        // Play explosion sound
+        // Play explosion sound (allow during game over)
         this.audio.playBangSound(asteroid.size);
 
         // Update score based on asteroid size
@@ -372,9 +377,11 @@ export default class Game {
             setTimeout(() => {
                 this.createNewWave();
                 // Start the background beat for the new wave with a slight delay
-                // to ensure the wave end sound has finished
+                // to ensure the wave end sound has finished, but only if game isn't over
                 setTimeout(() => {
-                    this.audio.startBackgroundBeat(this.wave);
+                    if (!this.gameOver && !this.gameOverPending) {
+                        this.audio.startBackgroundBeat(this.wave);
+                    }
                 }, GAME_SETTINGS.BACKGROUND_BEAT_DELAY);
             }, GAME_SETTINGS.WAVE_CREATION_DELAY);
         }
