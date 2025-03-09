@@ -154,20 +154,24 @@ export default class Ship {
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(this.radius, 0);
-        ctx.lineTo(-this.radius, -this.radius / 2);
-        ctx.lineTo(-this.radius, this.radius / 2);
+        
+        // Draw the main triangle shape with concave back
+        ctx.moveTo(this.radius, 0);  // Front tip
+        ctx.lineTo(-this.radius / 2, -this.radius / 2);  // Top back point
+        ctx.lineTo(-this.radius * 0.3, 0);  // Back indent
+        ctx.lineTo(-this.radius / 2, this.radius / 2);   // Bottom back point
         ctx.closePath();
         ctx.stroke();
     }
     
     drawThruster(ctx) {
+        ctx.strokeStyle = '#fff';
         ctx.beginPath();
-        ctx.moveTo(-this.radius, 0);
-        ctx.lineTo(-this.radius - 10, -5);
-        ctx.lineTo(-this.radius - 5, 0);
-        ctx.lineTo(-this.radius - 10, 5);
-        ctx.closePath();
+        
+        // Draw a simple V shape for thrust
+        ctx.moveTo(-this.radius * 0.3, -this.radius * 0.2);  // Top inner point
+        ctx.lineTo(-this.radius * 0.8, 0);                    // Back point
+        ctx.lineTo(-this.radius * 0.3, this.radius * 0.2);   // Bottom inner point
         ctx.stroke();
     }
     
