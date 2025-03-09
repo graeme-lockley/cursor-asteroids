@@ -345,11 +345,12 @@ describe('Game', () => {
             const playWaveEndSoundSpy = jest.spyOn(game.audio, 'playWaveEndSound');
             
             // Clear all asteroids except one small one
-            game.asteroids = [new Asteroid(400, 300, 'small')];
+            const lastAsteroid = new Asteroid(400, 300, 'small');
+            game.asteroids = [lastAsteroid];
             const initialWave = game.wave;
             
             // Destroy the last asteroid
-            game.handleAsteroidDestruction(0);
+            game.handleAsteroidDestruction(lastAsteroid);
             
             // Wave end sound should play and background beat should stop
             expect(playWaveEndSoundSpy).toHaveBeenCalled();
@@ -655,6 +656,70 @@ describe('Game', () => {
             
             expect(clearTimeoutSpy).toHaveBeenCalled();
             expect(game.gameOverTimer).toBeNull();
+        });
+    });
+
+    describe('asteroid velocity behavior', () => {
+        test('initial asteroids have non-zero velocity', () => {
+            game.createNewWave();
+            
+            game.asteroids.forEach(asteroid => {
+                const speed = Math.hypot(asteroid.velocity.x, asteroid.velocity.y);
+                expect(speed).toBeGreaterThan(0);
+                // Speed should be between 50 and 100
+                expect(speed).toBeGreaterThanOrEqual(50);
+                expect(speed).toBeLessThanOrEqual(100);
+            });
+        });
+
+        test('split asteroids inherit and increase parent velocity', () => {
+            // Create a parent asteroid with known velocity
+            const parentAsteroid = new Asteroid(400, 300, 'large');
+            parentAsteroid.velocity = { x: 60, y: 80 }; // Speed = 100
+            game.asteroids = [parentAsteroid];
+            
+            // Split the asteroid
+            game.handleAsteroidDestruction(parentAsteroid);
+            
+            // Check the child asteroids
+            const childAsteroids = game.asteroids;
+            expect(childAsteroids.length).toBe(2);
+            
+            childAsteroids.forEach(child => {
+                // Child speed should be 1.5x parent speed
+                const parentSpeed = Math.hypot(parentAsteroid.velocity.x, parentAsteroid.velocity.y);
+                const childSpeed = Math.hypot(child.velocity.x, child.velocity.y);
+                expect(childSpeed).toBeCloseTo(parentSpeed * 1.5, 1);
+                
+                // Direction should be within 45 degrees of parent
+                const parentAngle = Math.atan2(parentAsteroid.velocity.y, parentAsteroid.velocity.x);
+                const childAngle = Math.atan2(child.velocity.y, child.velocity.x);
+                const angleDiff = Math.abs(childAngle - parentAngle);
+                expect(angleDiff).toBeLessThanOrEqual(Math.PI / 4 + 0.01); // Adding small delta for floating point comparison
+            });
+        });
+
+        test('asteroid velocity persists through multiple splits', () => {
+            // Create initial large asteroid with known velocity
+            const largeAsteroid = new Asteroid(400, 300, 'large');
+            largeAsteroid.velocity = { x: 60, y: 80 }; // Speed = 100
+            game.asteroids = [largeAsteroid];
+            
+            // Split large asteroid
+            game.handleAsteroidDestruction(largeAsteroid);
+            const mediumAsteroids = [...game.asteroids];
+            
+            // Split one of the medium asteroids
+            game.handleAsteroidDestruction(mediumAsteroids[0]);
+            const smallAsteroids = game.asteroids.filter(a => a.size === 'small');
+            
+            // Check small asteroids have higher speed than original
+            const originalSpeed = Math.hypot(largeAsteroid.velocity.x, largeAsteroid.velocity.y);
+            smallAsteroids.forEach(asteroid => {
+                const speed = Math.hypot(asteroid.velocity.x, asteroid.velocity.y);
+                // After two splits, speed should be 1.5 * 1.5 times the original
+                expect(speed).toBeCloseTo(originalSpeed * 1.5 * 1.5, 1);
+            });
         });
     });
 }); 

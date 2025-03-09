@@ -1,5 +1,5 @@
 export default class Asteroid {
-    constructor(x, y, size) {
+    constructor(x, y, size, baseSpeed = null, angle = null, baseVelocity = null) {
         this.x = x;
         this.y = y;
         this.size = size;
@@ -12,13 +12,31 @@ export default class Asteroid {
         };
         this.radius = radii[size];
         
-        // Random velocity
-        const speed = Math.random() * 50 + 50;
-        const angle = Math.random() * Math.PI * 2;
-        this.velocity = {
-            x: Math.cos(angle) * speed,
-            y: Math.sin(angle) * speed
-        };
+        // Set velocity based on parameters or random if not provided
+        if (baseVelocity) {
+            // Use the base velocity as a starting point
+            const speedMultiplier = 1.5;  // Increase speed for smaller asteroids
+            const angleVariance = Math.PI / 4;  // 45 degree variance
+            const newAngle = angle || Math.random() * Math.PI * 2;
+            
+            // Calculate new velocity components
+            const speed = Math.hypot(baseVelocity.x, baseVelocity.y) * speedMultiplier;
+            const currentAngle = Math.atan2(baseVelocity.y, baseVelocity.x);
+            const finalAngle = currentAngle + (Math.random() * 2 - 1) * angleVariance;
+            
+            this.velocity = {
+                x: Math.cos(finalAngle) * speed,
+                y: Math.sin(finalAngle) * speed
+            };
+        } else {
+            // Random velocity for new asteroids
+            const speed = baseSpeed || (Math.random() * 50 + 50);
+            const randomAngle = angle || Math.random() * Math.PI * 2;
+            this.velocity = {
+                x: Math.cos(randomAngle) * speed,
+                y: Math.sin(randomAngle) * speed
+            };
+        }
         
         // Create vertices for irregular shape
         this.vertices = this.createVertices();

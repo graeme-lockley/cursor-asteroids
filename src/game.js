@@ -271,7 +271,7 @@ export default class Game {
             this.asteroids.forEach((asteroid, index) => {
                 if (checkCollision(bullet, asteroid)) {
                     bullet.isDead = true;
-                    this.handleAsteroidDestruction(index);
+                    this.handleAsteroidDestruction(asteroid);
                 }
             });
         });
@@ -293,78 +293,81 @@ export default class Game {
                         }, GAME_SETTINGS.GAME_OVER_DELAY);
                         
                         // Handle asteroid destruction after setting game over state
-                        this.handleAsteroidDestruction(index);
+                        this.handleAsteroidDestruction(asteroid);
                     } else {
                         // Only reset ship position if player still has lives
                         this.ship.isInvulnerable = true;
                         this.ship.reset(this.canvas.width / 2, this.canvas.height / 2);
                         
                         // Handle asteroid destruction
-                        this.handleAsteroidDestruction(index);
+                        this.handleAsteroidDestruction(asteroid);
                     }
                 }
             });
         }
     }
     
-    handleAsteroidDestruction(index) {
-        const asteroid = this.asteroids[index];
-        let newAsteroidsCount = 0;
-        
+    handleAsteroidDestruction(asteroid) {
         // Play explosion sound
         this.audio.playBangSound(asteroid.size);
-        
+
         // Update score based on asteroid size
-        switch (asteroid.size) {
-            case 'large':
-                this.score += 20;
-                newAsteroidsCount = 2;  // Will create 2 medium asteroids
-                break;
-            case 'medium':
-                this.score += 50;
-                newAsteroidsCount = 2;  // Will create 2 small asteroids
-                break;
-            case 'small':
-                this.score += 100;
-                newAsteroidsCount = 0;  // No new asteroids
-                break;
-        }
-        
+        const scores = {
+            large: 20,
+            medium: 50,
+            small: 100
+        };
+        this.score += scores[asteroid.size];
+
         // Check for extra life
         this.checkExtraLife();
-        
-        // Create smaller asteroids if not already at smallest size and not in game over
-        if (asteroid.size !== 'small' && !this.gameOverPending && !this.gameOver) {
-            const newSize = asteroid.size === 'large' ? 'medium' : 'small';
-            for (let i = 0; i < 2; i++) {
-                const angle = (Math.PI * 2 * i) / 2;
-                const newAsteroid = new Asteroid(
-                    asteroid.x,
-                    asteroid.y,
-                    newSize,
-                    asteroid.speed * 1.5,
-                    angle
-                );
-                this.asteroids.push(newAsteroid);
+
+        let newAsteroidsCount = 0;
+
+        // Create new asteroids based on size if not in game over
+        if (!this.gameOverPending && !this.gameOver) {
+            if (asteroid.size === 'large') {
+                newAsteroidsCount = 2;
+                for (let i = 0; i < 2; i++) {
+                    this.asteroids.push(new Asteroid(
+                        asteroid.x,
+                        asteroid.y,
+                        'medium',
+                        null,
+                        null,
+                        asteroid.velocity
+                    ));
+                }
+            } else if (asteroid.size === 'medium') {
+                newAsteroidsCount = 2;
+                for (let i = 0; i < 2; i++) {
+                    this.asteroids.push(new Asteroid(
+                        asteroid.x,
+                        asteroid.y,
+                        'small',
+                        null,
+                        null,
+                        asteroid.velocity
+                    ));
+                }
             }
         }
-        
+
         // Remove the original asteroid
-        this.asteroids.splice(index, 1);
-        
+        this.asteroids = this.asteroids.filter(a => a !== asteroid);
+
         // Update beat interval based on remaining asteroids
-        // Count total asteroids including those that will be created
         const totalAsteroids = this.asteroids.length + newAsteroidsCount;
         this.audio.updateBeatInterval(totalAsteroids, this.initialAsteroidCount);
-        
+
         // Check if all asteroids are destroyed
         if (this.asteroids.length === 0) {
             this.wave++;
-            
+
             // Stop background beat and play wave end sound
             this.audio.stopBackgroundBeat();
             this.audio.playWaveEndSound();
-            
+
             // Create new wave after delay
             setTimeout(() => {
                 this.createNewWave();
@@ -416,7 +419,9 @@ export default class Game {
             // Add some randomness to the angle (±45 degrees)
             const angle = angleToCenter + (Math.random() - 0.5) * Math.PI / 2;
             
-            this.asteroids.push(new Asteroid(x, y, 'large', 2, angle));
+            // Create asteroid with initial speed between 50 and 100
+            const speed = Math.random() * 50 + 50;
+            this.asteroids.push(new Asteroid(x, y, 'large', speed, angle));
         }
     }
     
