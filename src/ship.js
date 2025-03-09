@@ -30,8 +30,8 @@ export default class Ship {
         this.visible = true;
         
         // Combat state
-        this.isInvulnerable = false;  // Start not invulnerable
-        this.invulnerabilityTimer = 0;  // Start with no timer
+        this.isInvulnerable = true;  // Start invulnerable
+        this.invulnerabilityTimer = INVULNERABILITY_TIME;  // Start with full timer
         this.shootTimer = 0;
 
         // Disintegration state

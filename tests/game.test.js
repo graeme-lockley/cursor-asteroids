@@ -177,7 +177,8 @@ describe('Game', () => {
             game.asteroids = [new Asteroid(400, 300, 'large')];
             const initialAsteroidCount = game.asteroids.length;
             
-            // Force collision
+            // Force collision with a vulnerable ship
+            game.ship.isInvulnerable = false;  // Make ship vulnerable for test
             game.ship.x = game.asteroids[0].x;
             game.ship.y = game.asteroids[0].y;
             
@@ -194,7 +195,8 @@ describe('Game', () => {
             const asteroid = new Asteroid(game.ship.x, game.ship.y, 'large');
             game.asteroids = [asteroid];
             
-            // Trigger collision
+            // Make ship vulnerable and trigger collision
+            game.ship.isInvulnerable = false;  // Make ship vulnerable for test
             game.checkCollisions();
             
             // Ship should be visible and disintegrating
@@ -210,7 +212,8 @@ describe('Game', () => {
             const asteroid = new Asteroid(game.ship.x, game.ship.y, 'large');
             game.asteroids = [asteroid];
             
-            // Trigger collision
+            // Make ship vulnerable and trigger collision
+            game.ship.isInvulnerable = false;  // Make ship vulnerable for test
             game.checkCollisions();
             
             // Ship should be visible and disintegrating during game over delay
@@ -233,7 +236,8 @@ describe('Game', () => {
             smallAsteroid.size = 'small';
             const initialAsteroidCount = game.asteroids.length;
             
-            // Force collision
+            // Force collision with a vulnerable ship
+            game.ship.isInvulnerable = false;  // Make ship vulnerable for test
             game.ship.x = smallAsteroid.x;
             game.ship.y = smallAsteroid.y;
             
@@ -249,7 +253,8 @@ describe('Game', () => {
             game.asteroids[0].size = 'small';
             const initialWave = game.wave;
             
-            // Force collision to destroy last asteroid
+            // Force collision with a vulnerable ship
+            game.ship.isInvulnerable = false;  // Make ship vulnerable for test
             game.ship.x = game.asteroids[0].x;
             game.ship.y = game.asteroids[0].y;
             

@@ -26,9 +26,25 @@ describe('Ship', () => {
         });
         
         test('initializes with correct combat state', () => {
+            expect(ship.isInvulnerable).toBe(true);  // Ship should start invulnerable
+            expect(ship.invulnerabilityTimer).toBe(INVULNERABILITY_TIME);  // Timer should be set
+            expect(ship.shootTimer).toBe(0);
+        });
+
+        test('maintains invulnerability for the correct duration', () => {
+            // Should start invulnerable
+            expect(ship.isInvulnerable).toBe(true);
+            expect(ship.invulnerabilityTimer).toBe(INVULNERABILITY_TIME);
+
+            // Update for half the invulnerability time
+            ship.update(INVULNERABILITY_TIME / 2, {}, width, height);
+            expect(ship.isInvulnerable).toBe(true);
+            expect(ship.invulnerabilityTimer).toBeGreaterThan(0);
+
+            // Update for remaining time plus a small delta
+            ship.update(INVULNERABILITY_TIME / 2 + 0.1, {}, width, height);
             expect(ship.isInvulnerable).toBe(false);
             expect(ship.invulnerabilityTimer).toBe(0);
-            expect(ship.shootTimer).toBe(0);
         });
     });
     
