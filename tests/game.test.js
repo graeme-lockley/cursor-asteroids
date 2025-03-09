@@ -12,7 +12,8 @@ const GAME_SETTINGS = {
     GAME_OVER_DELAY: 3000,
     WAVE_CREATION_DELAY: 3000,
     BACKGROUND_BEAT_DELAY: 500,
-    BASE_ASTEROIDS: 3
+    BASE_ASTEROIDS: 3,
+    DEFAULT_HIGH_SCORE: 7500
 };
 
 // Mock Web Audio API
@@ -542,6 +543,54 @@ describe('Game', () => {
                 expect(game.lastExtraLifeScore).toBe(0);
                 expect(game.lives).toBe(GAME_SETTINGS.INITIAL_LIVES);
                 expect(game.lives).toBeLessThan(livesAfterExtra);
+            });
+        });
+
+        describe('high score system', () => {
+            beforeEach(() => {
+                game.score = 0;
+                game.highScore = GAME_SETTINGS.DEFAULT_HIGH_SCORE;
+            });
+
+            test('initializes with default high score', () => {
+                const newGame = new Game(canvas, true);
+                expect(newGame.highScore).toBe(GAME_SETTINGS.DEFAULT_HIGH_SCORE);
+            });
+
+            test('updates high score when score exceeds it', () => {
+                // Create a large asteroid and destroy it
+                const asteroid = new Asteroid(400, 300, 'large');
+                game.score = GAME_SETTINGS.DEFAULT_HIGH_SCORE - 10;
+                game.handleAsteroidDestruction(asteroid);
+                
+                // Score should increase by 20 (large asteroid value)
+                expect(game.score).toBe(GAME_SETTINGS.DEFAULT_HIGH_SCORE + 10);
+                expect(game.highScore).toBe(GAME_SETTINGS.DEFAULT_HIGH_SCORE + 10);
+            });
+
+            test('maintains high score across game resets', () => {
+                // Set a high score
+                game.score = 10000;
+                game.highScore = 10000;
+                
+                // Reset the game
+                game.reset();
+                
+                // Score should reset but high score should remain
+                expect(game.score).toBe(0);
+                expect(game.highScore).toBe(10000);
+            });
+
+            test('does not update high score when score is lower', () => {
+                const originalHighScore = game.highScore;
+                game.score = originalHighScore - 1000;
+                
+                // Destroy an asteroid
+                const asteroid = new Asteroid(400, 300, 'small');
+                game.handleAsteroidDestruction(asteroid);
+                
+                // High score should not change
+                expect(game.highScore).toBe(originalHighScore);
             });
         });
     });

@@ -8,6 +8,7 @@
 </head>
 <body>
     <div id="game-container">
+        <canvas id="game-canvas"></canvas>
         <div id="game-overlay">
             <div id="start-screen" class="screen">
                 <h1>ASTEROIDS</h1>
@@ -19,11 +20,6 @@
                 <p>Score: <span id="final-score">0</span></p>
                 <button id="restart-button">Play Again</button>
             </div>
-        </div>
-        <canvas id="game-canvas"></canvas>
-        <div id="game-stats">
-            <span>Score: <span id="score">0</span></span>
-            <span>Lives: <span id="lives">3</span></span>
         </div>
     </div>
     <script type="module" src="/src/index.js"></script>

@@ -11,7 +11,8 @@ const GAME_SETTINGS = {
     WAVE_CREATION_DELAY: 3000,
     BACKGROUND_BEAT_DELAY: 500,
     BASE_ASTEROIDS: 3,
-    EXTRA_LIFE_SCORE: 10000  // Score needed for an extra life
+    EXTRA_LIFE_SCORE: 10000,  // Score needed for an extra life
+    DEFAULT_HIGH_SCORE: 7500
 };
 
 export default class Game {
@@ -26,6 +27,7 @@ export default class Game {
         this.isTestMode = isTestMode;
         this.lastTime = performance.now();
         this.gameOverTimer = null;
+        this.highScore = GAME_SETTINGS.DEFAULT_HIGH_SCORE;
         
         // Create game over screen if it doesn't exist
         if (!document.getElementById('game-over-screen')) {
@@ -273,8 +275,46 @@ export default class Game {
     }
     
     renderHUD() {
-        document.getElementById('score').textContent = this.score;
-        document.getElementById('lives').textContent = this.lives;
+        // Render player 1 score on the left
+        this.context.fillStyle = 'white';
+        this.context.font = '20px Arial';
+        this.context.textAlign = 'left';
+        this.context.fillText(`Player 1  ${this.score}`, 20, 30);
+        
+        // Render high score in the middle
+        this.context.textAlign = 'center';
+        this.context.fillText(`High Score  ${this.highScore}`, this.canvas.width / 2, 30);
+        
+        // Render lives as small ships
+        this.renderLives();
+    }
+    
+    renderLives() {
+        const shipSpacing = 20;  // Reduced spacing between ships
+        const shipSize = 10;     // Size of the life ships
+        const startX = 80;       // Increased starting X position
+        const startY = 45;       // Moved up closer to score
+        
+        this.context.strokeStyle = 'white';
+        this.context.lineWidth = 1;
+        
+        // Draw a small ship for each life
+        for (let i = 0; i < this.lives; i++) {
+            this.context.save();
+            this.context.translate(startX + i * shipSpacing, startY);
+            this.context.rotate(-Math.PI / 2); // Rotate 90 degrees counterclockwise to face up
+            
+            // Draw small ship
+            this.context.beginPath();
+            this.context.moveTo(shipSize, 0);               // Front tip
+            this.context.lineTo(-shipSize/2, -shipSize/2);  // Top back
+            this.context.lineTo(-shipSize/3, 0);            // Back indent
+            this.context.lineTo(-shipSize/2, shipSize/2);   // Bottom back
+            this.context.closePath();
+            this.context.stroke();
+            
+            this.context.restore();
+        }
     }
     
     renderGameOver() {
@@ -313,11 +353,14 @@ export default class Game {
                         this.ship.startDisintegration();
                         this.ship.setGameOver(true);  // Set ship's game over state
                         this.audio.stopBackgroundBeat(); // Stop background beat immediately
+                        
                         setTimeout(() => {
                             this.gameOver = true;
                             this.gameOverPending = false;
                             this.audio.stopBackgroundBeat(); // Ensure background beat is stopped when game over message appears
-                            document.getElementById('game-over-screen').classList.add('visible');
+                            const gameOverScreen = document.getElementById('game-over-screen');
+                            document.getElementById('final-score').textContent = this.score;
+                            gameOverScreen.classList.add('visible');
                         }, GAME_SETTINGS.GAME_OVER_DELAY);
                         
                         // Handle asteroid destruction after setting game over state
@@ -345,6 +388,11 @@ export default class Game {
             small: 100
         };
         this.score += scores[asteroid.size];
+
+        // Update high score if current score is higher
+        if (this.score > this.highScore) {
+            this.highScore = this.score;
+        }
 
         // Check for extra life
         this.checkExtraLife();
