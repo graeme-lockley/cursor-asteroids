@@ -39,6 +39,9 @@ export default class Ship {
         this.disintegrationTimer = 0;
         this.disintegrationPieces = [];
         this.respawnTimer = 0;
+        
+        // Game state
+        this.gameOver = false;
     }
     
     update(deltaTime, keys, width, height) {
@@ -211,16 +214,31 @@ export default class Ship {
     }
     
     reset(x, y) {
+        // Position and orientation
         this.x = x;
         this.y = y;
         this.angle = 0;
+        this.rotation = 0;
+        
+        // Movement
         this.velocity = { x: 0, y: 0 };
         this.thrust = false;
+        this.prevThrust = false;
+        
+        // Visual
+        this.radius = 15;
+        this.visible = true;
+        
+        // Combat state
         this.isInvulnerable = true;
         this.invulnerabilityTimer = INVULNERABILITY_TIME;
+        this.shootTimer = 0;
+        
+        // Disintegration state
         this.isDisintegrating = false;
         this.disintegrationTimer = 0;
-        this.visible = true;
+        this.disintegrationPieces = [];
+        this.respawnTimer = 0;
     }
 
     startDisintegration() {
@@ -268,6 +286,10 @@ export default class Ship {
         });
     }
 
+    setGameOver(isGameOver) {
+        this.gameOver = isGameOver;
+    }
+
     updateDisintegration(deltaTime) {
         if (this.isDisintegrating) {
             this.disintegrationTimer += deltaTime;
@@ -296,20 +318,24 @@ export default class Ship {
                 piece.rotation *= 0.98;
             });
 
-            // After 2 seconds of disintegration, start respawn timer
+            // After 2 seconds of disintegration, clear pieces and hide ship
             if (this.disintegrationTimer >= 2) {
                 this.isDisintegrating = false;
                 this.disintegrationPieces = [];
                 this.visible = false;
-                this.respawnTimer = 2; // Additional 2 second delay before respawn
-                // Keep invulnerability during invisible period
-                this.isInvulnerable = true;
-                this.invulnerabilityTimer = INVULNERABILITY_TIME;
+                
+                // Only set respawn timer if not in game over
+                if (!this.gameOver) {
+                    this.respawnTimer = 2;
+                    // Keep invulnerability during invisible period
+                    this.isInvulnerable = true;
+                    this.invulnerabilityTimer = INVULNERABILITY_TIME;
+                }
             }
-        } else if (this.respawnTimer > 0) {  // Only update respawn timer if it's active
+        } else if (this.respawnTimer > 0 && !this.gameOver) {  // Only update respawn if not in game over
             this.respawnTimer -= deltaTime;
             if (this.respawnTimer <= 0) {
-                // Reset ship at center of screen with fresh invulnerability
+                // Reset ship at center of screen
                 this.reset(this.canvas.width / 2, this.canvas.height / 2);
                 // Make sure the ship is visible after reset
                 this.visible = true;

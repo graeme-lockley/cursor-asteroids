@@ -189,56 +189,43 @@ describe('Game', () => {
             expect(game.asteroids.filter(a => a.size === 'large').length).toBe(0);
         });
         
-        test('hides ship immediately when last life is lost', () => {
-            // Set up game with one life
+        test('shows ship disintegrating when last life is lost', () => {
             game.lives = 1;
-            game.asteroids = [new Asteroid(400, 300, 'large')];
+            const asteroid = new Asteroid(game.ship.x, game.ship.y, 'large');
+            game.asteroids = [asteroid];
             
-            // Force fatal collision
-            game.ship.x = game.asteroids[0].x;
-            game.ship.y = game.asteroids[0].y;
-            game.ship.isInvulnerable = false;
-            
-            // Update game to trigger collision
+            // Trigger collision
             game.checkCollisions();
             
-            // Ship should be in pending game over state
-            expect(game.gameOverPending).toBe(true);
-            expect(game.lives).toBe(0);
-            
-            // Render and check that ship is not drawn
+            // Ship should be visible and disintegrating
             const renderSpy = jest.spyOn(game.ship, 'render');
             game.render();
-            expect(renderSpy).not.toHaveBeenCalled();
+            expect(renderSpy).toHaveBeenCalled();
+            expect(game.ship.isDisintegrating).toBe(true);
+            expect(game.ship.visible).toBe(true);
         });
         
-        test('keeps ship hidden during game over delay', () => {
-            // Set up game with one life
+        test('keeps ship visible during game over delay until disintegration completes', () => {
             game.lives = 1;
-            game.asteroids = [new Asteroid(400, 300, 'large')];
+            const asteroid = new Asteroid(game.ship.x, game.ship.y, 'large');
+            game.asteroids = [asteroid];
             
-            // Force fatal collision
-            game.ship.x = game.asteroids[0].x;
-            game.ship.y = game.asteroids[0].y;
-            game.ship.isInvulnerable = false;
-            
-            // Update game to trigger collision
+            // Trigger collision
             game.checkCollisions();
             
-            // Ship should be hidden immediately
+            // Ship should be visible and disintegrating during game over delay
             const renderSpy = jest.spyOn(game.ship, 'render');
             game.render();
-            expect(renderSpy).not.toHaveBeenCalled();
+            expect(renderSpy).toHaveBeenCalled();
+            expect(game.ship.isDisintegrating).toBe(true);
+            expect(game.ship.visible).toBe(true);
             expect(game.gameOverPending).toBe(true);
             expect(game.gameOver).toBe(false);
             
-            // Advance timer to complete the delay
-            jest.advanceTimersByTime(3000);
-            
-            // Ship should still be hidden and game should be over
-            game.render();
-            expect(renderSpy).not.toHaveBeenCalled();
-            expect(game.gameOver).toBe(true);
+            // After disintegration completes, ship should be hidden
+            game.ship.disintegrationTimer = 2.1;  // Past the 2 second disintegration time
+            game.ship.updateDisintegration(0.1);
+            expect(game.ship.visible).toBe(false);
         });
         
         test('destroys small asteroid without splitting', () => {

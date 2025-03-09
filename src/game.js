@@ -64,6 +64,7 @@ export default class Game {
         
         // Create game objects
         this.ship = new Ship(this.canvas.width / 2, this.canvas.height / 2, this.canvas);
+        this.ship.setGameOver(false);  // Ensure ship's game over state is reset
         this.asteroids = [];
         this.bullets = [];
         
@@ -263,8 +264,8 @@ export default class Game {
     }
     
     renderGameObjects() {
-        // Only render the ship if it's visible and not in game over state
-        if (this.ship.visible && !this.gameOver) {
+        // Render the ship if it's visible, including during game over
+        if (this.ship.visible) {
             this.ship.render(this.context);
         }
         this.bullets.forEach(bullet => bullet.render(this.context));
@@ -310,11 +311,12 @@ export default class Game {
                     if (this.lives <= 0) {
                         this.gameOverPending = true;
                         this.ship.startDisintegration();
-                        this.audio.stopBackgroundBeat(); // Only stop background beat, let other sounds finish naturally
+                        this.ship.setGameOver(true);  // Set ship's game over state
+                        this.audio.stopBackgroundBeat(); // Stop background beat immediately
                         setTimeout(() => {
                             this.gameOver = true;
                             this.gameOverPending = false;
-                            this.ship.visible = false;  // Hide ship after game over delay
+                            this.audio.stopBackgroundBeat(); // Ensure background beat is stopped when game over message appears
                             document.getElementById('game-over-screen').classList.add('visible');
                         }, GAME_SETTINGS.GAME_OVER_DELAY);
                         
@@ -348,7 +350,7 @@ export default class Game {
         this.checkExtraLife();
 
         // Create new asteroids based on size if not in game over
-        if (!this.gameOverPending && !this.gameOver) {
+        if (!this.gameOverPending && !this.gameOver && !this.gameOverPending) {
             if (asteroid.size === 'large') {
                 for (let i = 0; i < 2; i++) {
                     this.asteroids.push(new Asteroid(

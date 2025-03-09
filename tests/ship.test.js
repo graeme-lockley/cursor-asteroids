@@ -1,5 +1,7 @@
 import Ship from '../src/ship.js';
 
+const INVULNERABILITY_TIME = 2; // seconds
+
 describe('Ship', () => {
     let ship;
     const width = 800;
@@ -126,6 +128,34 @@ describe('Ship', () => {
             ship.update(2.1, {}, width, height); // Update longer than invulnerability time
             expect(ship.isInvulnerable).toBe(false);
         });
+
+        test('properly disintegrates during game over', () => {
+            ship.setGameOver(true);  // Set game over state first
+            ship.startDisintegration();
+            
+            // Ship should be disintegrating and visible initially
+            expect(ship.isDisintegrating).toBe(true);
+            expect(ship.visible).toBe(true);
+            expect(ship.disintegrationPieces.length).toBeGreaterThan(0);
+            
+            // Update for 1 second - should still be disintegrating
+            ship.update(1.0, {}, width, height);
+            expect(ship.isDisintegrating).toBe(true);
+            expect(ship.visible).toBe(true);
+            expect(ship.disintegrationPieces.length).toBeGreaterThan(0);
+            
+            // Update for another 1.5 seconds - should finish disintegration and hide
+            ship.update(1.5, {}, width, height);
+            expect(ship.isDisintegrating).toBe(false);
+            expect(ship.visible).toBe(false);  // Ship should be hidden
+            expect(ship.disintegrationPieces.length).toBe(0);
+            expect(ship.respawnTimer).toBe(0);  // No respawn during game over
+            
+            // Update for remaining respawn time - should stay hidden during game over
+            ship.update(2.0, {}, width, height);
+            expect(ship.visible).toBe(false);  // Ship should stay hidden
+            expect(ship.respawnTimer).toBe(0);
+        });
     });
     
     describe('reset', () => {
@@ -142,7 +172,7 @@ describe('Ship', () => {
             expect(ship.velocity.y).toBe(0);
             expect(ship.angle).toBe(0);
             expect(ship.isInvulnerable).toBe(true);
-            expect(ship.invulnerabilityTimer).toBe(0);
+            expect(ship.invulnerabilityTimer).toBe(INVULNERABILITY_TIME);
         });
     });
 }); 
