@@ -69,6 +69,14 @@ export default class Game {
         // Set up input handling
         setupInput();
         
+        // Add keydown listener for game over restart
+        window.addEventListener('keydown', (e) => {
+            if (this.gameOver) {
+                this.reset();
+                document.getElementById('game-over-screen').classList.remove('visible');
+            }
+        });
+        
         // Initialize audio on first user interaction
         const startAudio = () => {
             // Resume audio context
@@ -195,6 +203,8 @@ export default class Game {
                     
                     if (this.lives <= 0) {
                         this.gameOver = true;
+                        // Stop all sounds when game is over
+                        this.audio.stopAllSounds();
                         document.getElementById('game-over-screen').classList.add('visible');
                         document.getElementById('final-score').textContent = this.score;
                     }

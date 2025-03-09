@@ -223,6 +223,21 @@ export default class AudioManager {
         }
     }
 
+    stopAllSounds() {
+        // Stop background beat
+        this.stopBackgroundBeat();
+        
+        // Stop all currently playing sounds
+        if (this.context) {
+            // Create new audio context to immediately stop all sounds
+            this.context.close();
+            this.context = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Reinitialize audio pools
+            this.init();
+        }
+    }
+
     updateBeatInterval(remainingAsteroids, totalAsteroids) {
         // Calculate how far through the wave we are (0 to 1)
         const progress = 1 - (remainingAsteroids / totalAsteroids);
