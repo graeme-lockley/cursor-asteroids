@@ -91,44 +91,69 @@ export default class AudioManager {
                 console.log('Audio context resumed:', this.context.state);
             }
             
+            // Get the base URL for the current environment
+            const baseUrl = window.location.origin;
+            console.log('Base URL:', baseUrl);
+            
             // Load all sound buffers
             await Promise.all(
                 Object.entries(this.poolConfig).map(async ([key, config]) => {
                     try {
-                        console.log(`Loading sound: ${key} from ${config.url}`);
-                        const response = await fetch(config.url);
+                        // Try multiple path variations to handle different deployment environments
+                        const pathVariations = [
+                            config.url,                      // sounds/beat1.wav
+                            '/' + config.url,                // /sounds/beat1.wav
+                            baseUrl + '/' + config.url,      // https://example.com/sounds/beat1.wav
+                            './sounds/' + config.url.split('/').pop(), // ./sounds/beat1.wav
+                            '/public/sounds/' + config.url.split('/').pop(), // /public/sounds/beat1.wav
+                            baseUrl + '/public/sounds/' + config.url.split('/').pop() // https://example.com/public/sounds/beat1.wav
+                        ];
                         
-                        if (!response.ok) {
-                            throw new Error(`Failed to fetch ${config.url}: ${response.status} ${response.statusText}`);
+                        let loaded = false;
+                        let lastError = null;
+                        
+                        // Try each path variation until one works
+                        for (const path of pathVariations) {
+                            try {
+                                console.log(`Trying to load sound ${key} from ${path}`);
+                                const response = await fetch(path);
+                                
+                                if (!response.ok) {
+                                    console.warn(`Failed to fetch ${path}: ${response.status} ${response.statusText}`);
+                                    continue;
+                                }
+                                
+                                const arrayBuffer = await response.arrayBuffer();
+                                this.buffers[key] = await this.context.decodeAudioData(arrayBuffer);
+                                
+                                // Create pool for this sound
+                                this.createPool(key, config.size);
+                                console.log(`Sound loaded successfully: ${key} from ${path}`);
+                                loaded = true;
+                                break;
+                            } catch (error) {
+                                console.warn(`Error loading sound ${key} from ${path}:`, error);
+                                lastError = error;
+                            }
                         }
                         
-                        const arrayBuffer = await response.arrayBuffer();
-                        this.buffers[key] = await this.context.decodeAudioData(arrayBuffer);
-                        
-                        // Create pool for this sound
-                        this.createPool(key, config.size);
-                        console.log(`Sound loaded: ${key}`);
+                        if (!loaded) {
+                            console.error(`Failed to load sound ${key} from all paths. Last error:`, lastError);
+                            // Create a silent buffer as fallback
+                            const sampleRate = this.context.sampleRate;
+                            const buffer = this.context.createBuffer(2, sampleRate * 0.5, sampleRate);
+                            this.buffers[key] = buffer;
+                            this.createPool(key, config.size);
+                            console.log(`Created silent fallback for sound: ${key}`);
+                        }
                     } catch (error) {
                         console.error(`Failed to load sound ${key}:`, error);
-                        // Try with a fallback path
-                        try {
-                            const fallbackUrl = '/' + config.url;
-                            console.log(`Trying fallback URL: ${fallbackUrl}`);
-                            const response = await fetch(fallbackUrl);
-                            
-                            if (!response.ok) {
-                                throw new Error(`Failed to fetch fallback ${fallbackUrl}: ${response.status} ${response.statusText}`);
-                            }
-                            
-                            const arrayBuffer = await response.arrayBuffer();
-                            this.buffers[key] = await this.context.decodeAudioData(arrayBuffer);
-                            
-                            // Create pool for this sound
-                            this.createPool(key, config.size);
-                            console.log(`Sound loaded from fallback: ${key}`);
-                        } catch (fallbackError) {
-                            console.error(`Failed to load sound ${key} from fallback:`, fallbackError);
-                        }
+                        // Create a silent buffer as fallback
+                        const sampleRate = this.context.sampleRate;
+                        const buffer = this.context.createBuffer(2, sampleRate * 0.5, sampleRate);
+                        this.buffers[key] = buffer;
+                        this.createPool(key, config.size);
+                        console.log(`Created silent fallback for sound: ${key}`);
                     }
                 })
             );

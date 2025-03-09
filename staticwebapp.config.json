@@ -6,7 +6,8 @@
         "cache-control": "public, max-age=31536000, immutable",
         "Access-Control-Allow-Origin": "*",
         "Content-Type": "audio/wav"
-      }
+      },
+      "rewrite": "/sounds/:splat"
     },
     {
       "route": "/assets/*",
@@ -17,12 +18,15 @@
   ],
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/sounds/*.wav", "/assets/*"]
+    "exclude": ["/sounds/*.wav", "/assets/*", "/*.wav"]
   },
   "mimeTypes": {
     ".wav": "audio/wav"
   },
   "globalHeaders": {
     "content-security-policy": "default-src 'self'; connect-src 'self'; media-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self';"
+  },
+  "platform": {
+    "apiRuntime": "node:16"
   }
 } 

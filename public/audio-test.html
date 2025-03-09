@@ -25,6 +25,24 @@
             margin-top: 20px;
             font-family: monospace;
         }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+        .warning {
+            color: orange;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .test-grid button {
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -35,7 +53,11 @@
         <button id="init-audio">Initialize Audio</button>
         <button id="play-sound">Play Test Sound</button>
         <button id="test-paths">Test All Sound Paths</button>
+        <button id="test-azure-paths">Test Azure Paths</button>
+        <button id="clear-log">Clear Log</button>
     </div>
+    
+    <div class="test-grid" id="sound-grid"></div>
     
     <div class="log" id="log"></div>
     
@@ -44,16 +66,25 @@
         const initButton = document.getElementById('init-audio');
         const playButton = document.getElementById('play-sound');
         const testPathsButton = document.getElementById('test-paths');
+        const testAzurePathsButton = document.getElementById('test-azure-paths');
+        const clearLogButton = document.getElementById('clear-log');
+        const soundGrid = document.getElementById('sound-grid');
         
         let audioContext = null;
         let testBuffer = null;
+        const soundBuffers = {};
         
-        function logMessage(message) {
+        function logMessage(message, type = 'info') {
             const timestamp = new Date().toISOString().substr(11, 8);
-            log.innerHTML += `[${timestamp}] ${message}<br>`;
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : '';
+            log.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
             log.scrollTop = log.scrollHeight;
             console.log(message);
         }
+        
+        clearLogButton.addEventListener('click', () => {
+            log.innerHTML = '';
+        });
         
         initButton.addEventListener('click', async () => {
             try {
@@ -64,42 +95,101 @@
                 if (audioContext.state !== 'running') {
                     logMessage('Resuming audio context...');
                     await audioContext.resume();
-                    logMessage(`Audio context resumed. State: ${audioContext.state}`);
+                    logMessage(`Audio context resumed. State: ${audioContext.state}`, 'success');
                 }
+                
+                // Create sound grid buttons
+                createSoundGrid();
             } catch (error) {
-                logMessage(`Error initializing audio: ${error.message}`);
+                logMessage(`Error initializing audio: ${error.message}`, 'error');
             }
         });
         
-        playButton.addEventListener('click', async () => {
+        function createSoundGrid() {
+            const sounds = [
+                { id: 'beat1', name: 'Beat 1', path: 'sounds/beat1.wav' },
+                { id: 'beat2', name: 'Beat 2', path: 'sounds/beat2.wav' },
+                { id: 'fire', name: 'Fire', path: 'sounds/fire.wav' },
+                { id: 'bangLarge', name: 'Bang Large', path: 'sounds/bang-large.wav' },
+                { id: 'bangMedium', name: 'Bang Medium', path: 'sounds/bang-medium.wav' },
+                { id: 'bangSmall', name: 'Bang Small', path: 'sounds/bang-small.wav' },
+                { id: 'waveEnd', name: 'Wave End', path: 'sounds/wave-end.wav' },
+                { id: 'thrust', name: 'Thrust', path: 'sounds/thrust.wav' },
+                { id: 'extraLife', name: 'Extra Life', path: 'sounds/extra-life.wav' }
+            ];
+            
+            soundGrid.innerHTML = '';
+            
+            sounds.forEach(sound => {
+                const button = document.createElement('button');
+                button.textContent = sound.name;
+                button.addEventListener('click', () => loadAndPlaySound(sound.id, sound.path));
+                soundGrid.appendChild(button);
+            });
+        }
+        
+        async function loadAndPlaySound(id, path) {
             if (!audioContext) {
-                logMessage('Audio context not initialized. Click "Initialize Audio" first.');
+                logMessage('Audio context not initialized. Click "Initialize Audio" first.', 'error');
                 return;
             }
             
             try {
-                if (!testBuffer) {
-                    logMessage('Loading test sound...');
-                    const response = await fetch('sounds/beat1.wav');
+                if (!soundBuffers[id]) {
+                    logMessage(`Loading sound: ${id} from ${path}...`);
                     
-                    if (!response.ok) {
-                        throw new Error(`Failed to fetch sound: ${response.status} ${response.statusText}`);
+                    // Try multiple path variations
+                    const baseUrl = window.location.origin;
+                    const pathVariations = [
+                        path,
+                        '/' + path,
+                        baseUrl + '/' + path,
+                        './sounds/' + path.split('/').pop(),
+                        '/public/sounds/' + path.split('/').pop(),
+                        baseUrl + '/public/sounds/' + path.split('/').pop()
+                    ];
+                    
+                    let loaded = false;
+                    
+                    for (const testPath of pathVariations) {
+                        try {
+                            logMessage(`Trying path: ${testPath}`);
+                            const response = await fetch(testPath);
+                            
+                            if (!response.ok) {
+                                logMessage(`Failed to fetch from ${testPath}: ${response.status}`, 'warning');
+                                continue;
+                            }
+                            
+                            const arrayBuffer = await response.arrayBuffer();
+                            soundBuffers[id] = await audioContext.decodeAudioData(arrayBuffer);
+                            logMessage(`Sound ${id} loaded successfully from ${testPath}`, 'success');
+                            loaded = true;
+                            break;
+                        } catch (error) {
+                            logMessage(`Error loading from ${testPath}: ${error.message}`, 'warning');
+                        }
                     }
                     
-                    const arrayBuffer = await response.arrayBuffer();
-                    testBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                    logMessage('Test sound loaded successfully.');
+                    if (!loaded) {
+                        logMessage(`Failed to load sound ${id} from all paths`, 'error');
+                        return;
+                    }
                 }
                 
-                logMessage('Playing test sound...');
+                logMessage(`Playing sound: ${id}`);
                 const source = audioContext.createBufferSource();
-                source.buffer = testBuffer;
+                source.buffer = soundBuffers[id];
                 source.connect(audioContext.destination);
                 source.start(0);
-                logMessage('Test sound playback started.');
+                logMessage(`Sound ${id} playback started`, 'success');
             } catch (error) {
-                logMessage(`Error playing sound: ${error.message}`);
+                logMessage(`Error playing sound ${id}: ${error.message}`, 'error');
             }
+        }
+        
+        playButton.addEventListener('click', async () => {
+            await loadAndPlaySound('beat1', 'sounds/beat1.wav');
         });
         
         testPathsButton.addEventListener('click', async () => {
@@ -125,21 +215,71 @@
                     const response = await fetch(path);
                     
                     if (response.ok) {
-                        logMessage(`✅ Path ${path} is accessible. Content-Type: ${response.headers.get('content-type')}`);
+                        logMessage(`✅ Path ${path} is accessible. Content-Type: ${response.headers.get('content-type')}`, 'success');
                     } else {
-                        logMessage(`❌ Path ${path} returned status: ${response.status} ${response.statusText}`);
+                        logMessage(`❌ Path ${path} returned status: ${response.status} ${response.statusText}`, 'error');
                     }
                 } catch (error) {
-                    logMessage(`❌ Error fetching ${path}: ${error.message}`);
+                    logMessage(`❌ Error fetching ${path}: ${error.message}`, 'error');
                 }
             }
             
             logMessage('Path testing complete.');
         });
         
+        testAzurePathsButton.addEventListener('click', async () => {
+            const baseUrl = window.location.origin;
+            const soundFile = 'beat1.wav';
+            
+            const azurePaths = [
+                `${baseUrl}/sounds/${soundFile}`,
+                `${baseUrl}/public/sounds/${soundFile}`,
+                `${baseUrl}/assets/sounds/${soundFile}`,
+                `${baseUrl}/dist/sounds/${soundFile}`,
+                `${baseUrl}/static/sounds/${soundFile}`,
+                `/sounds/${soundFile}`,
+                `/public/sounds/${soundFile}`,
+                `sounds/${soundFile}`,
+                `./sounds/${soundFile}`
+            ];
+            
+            logMessage('Testing Azure-specific paths...');
+            
+            for (const path of azurePaths) {
+                try {
+                    logMessage(`Testing Azure path: ${path}`);
+                    const response = await fetch(path);
+                    
+                    if (response.ok) {
+                        logMessage(`✅ Azure path ${path} is accessible. Content-Type: ${response.headers.get('content-type')}`, 'success');
+                        
+                        // Try to decode the audio to make sure it's valid
+                        try {
+                            const arrayBuffer = await response.clone().arrayBuffer();
+                            if (!audioContext) {
+                                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                            }
+                            await audioContext.decodeAudioData(arrayBuffer);
+                            logMessage(`✅ Audio at ${path} decoded successfully`, 'success');
+                        } catch (decodeError) {
+                            logMessage(`❌ Audio at ${path} could not be decoded: ${decodeError.message}`, 'error');
+                        }
+                    } else {
+                        logMessage(`❌ Azure path ${path} returned status: ${response.status} ${response.statusText}`, 'error');
+                    }
+                } catch (error) {
+                    logMessage(`❌ Error fetching Azure path ${path}: ${error.message}`, 'error');
+                }
+            }
+            
+            logMessage('Azure path testing complete.');
+        });
+        
         // Log browser information
         logMessage(`User Agent: ${navigator.userAgent}`);
         logMessage(`AudioContext supported: ${!!(window.AudioContext || window.webkitAudioContext)}`);
+        logMessage(`Current URL: ${window.location.href}`);
+        logMessage(`Origin: ${window.location.origin}`);
     </script>
 </body>
 </html> 
