@@ -45,7 +45,7 @@ export default class Game {
         this.init();
     }
     
-    reset() {
+    async reset() {
         this.score = 0;
         this.lives = GAME_SETTINGS.INITIAL_LIVES;
         this.gameOver = false;
@@ -63,10 +63,19 @@ export default class Game {
         }
         
         // Create game objects
-        this.ship = new Ship(this.canvas.width / 2, this.canvas.height / 2);
+        this.ship = new Ship(this.canvas.width / 2, this.canvas.height / 2, this.canvas);
         this.asteroids = [];
         this.bullets = [];
+        
+        // Initialize audio
         this.audio = new AudioManager(this.isTestMode);
+        if (!this.isTestMode) {
+            try {
+                await this.audio.init();
+            } catch (error) {
+                console.error('Failed to initialize audio during reset:', error);
+            }
+        }
         
         // Create initial asteroids
         this.createNewWave();
@@ -106,9 +115,9 @@ export default class Game {
         setupInput();
         
         // Add keydown listener for game over restart
-        window.addEventListener('keydown', () => {
+        window.addEventListener('keydown', async () => {
             if (this.gameOver) {
-                this.reset();
+                await this.reset();
                 document.getElementById('game-over-screen').classList.remove('visible');
             }
         });
@@ -124,7 +133,7 @@ export default class Game {
     }
     
     setupAudioHandling() {
-        const startAudio = () => {
+        const startAudio = async () => {
             if (this.isTestMode) {
                 // In test mode, just start the background beat if not game over
                 if (!this.gameOver && !this.gameOverPending) {
@@ -132,12 +141,18 @@ export default class Game {
                 }
                 this.removeAudioListeners(startAudio);
             } else {
-                this.audio.context.resume().then(() => {
+                try {
+                    // Wait for audio context to resume and initialization to complete
+                    await this.audio.context.resume();
+                    await this.audio.init();
+                    
                     if (!this.gameOver && !this.gameOverPending) {
                         this.audio.startBackgroundBeat(this.wave);
                     }
                     this.removeAudioListeners(startAudio);
-                });
+                } catch (error) {
+                    console.error('Failed to initialize audio:', error);
+                }
             }
         };
         
@@ -248,7 +263,8 @@ export default class Game {
     }
     
     renderGameObjects() {
-        if (!this.gameOver && !this.gameOverPending) {
+        // Only render the ship if it's visible and not in game over state
+        if (this.ship.visible && !this.gameOver) {
             this.ship.render(this.context);
         }
         this.bullets.forEach(bullet => bullet.render(this.context));
@@ -286,23 +302,27 @@ export default class Game {
                 if (checkCollision(this.ship, asteroid)) {
                     this.lives--;
                     
+                    // Stop thrust sound immediately if ship was thrusting
+                    if (this.ship.thrust) {
+                        this.audio.stopThrustSound();
+                    }
+                    
                     if (this.lives <= 0) {
                         this.gameOverPending = true;
-                        this.ship.visible = false;
-                        this.ship.isInvulnerable = true;
+                        this.ship.startDisintegration();
                         this.audio.stopBackgroundBeat(); // Only stop background beat, let other sounds finish naturally
                         setTimeout(() => {
                             this.gameOver = true;
                             this.gameOverPending = false;
+                            this.ship.visible = false;  // Hide ship after game over delay
                             document.getElementById('game-over-screen').classList.add('visible');
                         }, GAME_SETTINGS.GAME_OVER_DELAY);
                         
                         // Handle asteroid destruction after setting game over state
                         this.handleAsteroidDestruction(asteroid);
                     } else {
-                        // Only reset ship position if player still has lives
-                        this.ship.isInvulnerable = true;
-                        this.ship.reset(this.canvas.width / 2, this.canvas.height / 2);
+                        // Start disintegration animation
+                        this.ship.startDisintegration();
                         
                         // Handle asteroid destruction
                         this.handleAsteroidDestruction(asteroid);
@@ -327,12 +347,9 @@ export default class Game {
         // Check for extra life
         this.checkExtraLife();
 
-        let newAsteroidsCount = 0;
-
         // Create new asteroids based on size if not in game over
         if (!this.gameOverPending && !this.gameOver) {
             if (asteroid.size === 'large') {
-                newAsteroidsCount = 2;
                 for (let i = 0; i < 2; i++) {
                     this.asteroids.push(new Asteroid(
                         asteroid.x,
@@ -344,7 +361,6 @@ export default class Game {
                     ));
                 }
             } else if (asteroid.size === 'medium') {
-                newAsteroidsCount = 2;
                 for (let i = 0; i < 2; i++) {
                     this.asteroids.push(new Asteroid(
                         asteroid.x,
@@ -362,11 +378,10 @@ export default class Game {
         this.asteroids = this.asteroids.filter(a => a !== asteroid);
 
         // Update beat interval based on remaining asteroids
-        const totalAsteroids = this.asteroids.length + newAsteroidsCount;
-        this.audio.updateBeatInterval(totalAsteroids, this.initialAsteroidCount);
+        this.audio.updateBeatInterval(this.asteroids.length, this.initialAsteroidCount);
 
         // Check if all asteroids are destroyed
-        if (this.asteroids.length === 0) {
+        if (this.asteroids.length === 0 && !this.gameOver && !this.gameOverPending) {
             this.wave++;
 
             // Stop background beat and play wave end sound
