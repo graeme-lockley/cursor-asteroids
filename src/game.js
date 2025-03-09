@@ -145,14 +145,30 @@ export default class Game {
                 this.removeAudioListeners(startAudio);
             } else {
                 try {
+                    console.log('User interaction detected, initializing audio...');
+                    
                     // Wait for audio context to resume and initialization to complete
-                    await this.audio.context.resume();
+                    if (this.audio.context.state !== 'running') {
+                        console.log('Resuming audio context...');
+                        await this.audio.context.resume();
+                        console.log('Audio context state after resume:', this.audio.context.state);
+                    }
+                    
+                    // Initialize audio if not already done
                     await this.audio.init();
                     
                     if (!this.gameOver && !this.gameOverPending) {
+                        console.log('Starting background beat...');
                         this.audio.startBackgroundBeat(this.wave);
                     }
-                    this.removeAudioListeners(startAudio);
+                    
+                    // Only remove listeners if initialization was successful
+                    if (this.audio.initialized) {
+                        console.log('Audio initialized successfully, removing event listeners');
+                        this.removeAudioListeners(startAudio);
+                    } else {
+                        console.warn('Audio initialization not complete, keeping event listeners');
+                    }
                 } catch (error) {
                     console.error('Failed to initialize audio:', error);
                 }
@@ -160,9 +176,18 @@ export default class Game {
         };
         
         // Add event listeners for user interaction
+        console.log('Adding audio event listeners for user interaction');
         document.addEventListener('keydown', startAudio);
         document.addEventListener('click', startAudio);
         document.addEventListener('touchstart', startAudio);
+        
+        // Also try to initialize on window load
+        window.addEventListener('load', () => {
+            console.log('Window loaded, checking if we can initialize audio');
+            if (this.audio && this.audio.context && !this.audio.initialized) {
+                startAudio();
+            }
+        });
     }
     
     removeAudioListeners(handler) {

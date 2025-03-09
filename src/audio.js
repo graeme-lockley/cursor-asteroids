@@ -2,7 +2,10 @@ export default class AudioManager {
     constructor(isTest = false) {
         // Create audio context if not in test mode
         if (!isTest) {
+            // Use a suspended audio context by default
             this.context = new (window.AudioContext || window.webkitAudioContext)();
+            this.initialized = false;
+            this.initializationAttempted = false;
         }
         
         // Audio buffers for each sound
@@ -21,17 +24,17 @@ export default class AudioManager {
             extraLife: []  // Add extra life sound pool
         };
         
-        // Pool configuration
+        // Pool configuration with both absolute and relative paths
         this.poolConfig = {
-            beat1: { url: '/sounds/beat1.wav', size: 2 },
-            beat2: { url: '/sounds/beat2.wav', size: 2 },
-            fire: { url: '/sounds/fire.wav', size: 4 },
-            bangLarge: { url: '/sounds/bang-large.wav', size: 4 },
-            bangMedium: { url: '/sounds/bang-medium.wav', size: 4 },
-            bangSmall: { url: '/sounds/bang-small.wav', size: 4 },
-            waveEnd: { url: '/sounds/wave-end.wav', size: 2 },
-            thrust: { url: '/sounds/thrust.wav', size: 2 },
-            extraLife: { url: '/sounds/extra-life.wav', size: 2 }  // Add extra life sound config
+            beat1: { url: 'sounds/beat1.wav', size: 2 },
+            beat2: { url: 'sounds/beat2.wav', size: 2 },
+            fire: { url: 'sounds/fire.wav', size: 4 },
+            bangLarge: { url: 'sounds/bang-large.wav', size: 4 },
+            bangMedium: { url: 'sounds/bang-medium.wav', size: 4 },
+            bangSmall: { url: 'sounds/bang-small.wav', size: 4 },
+            waveEnd: { url: 'sounds/wave-end.wav', size: 2 },
+            thrust: { url: 'sounds/thrust.wav', size: 2 },
+            extraLife: { url: 'sounds/extra-life.wav', size: 2 }  // Add extra life sound config
         };
         
         this.baseInterval = 1000;  // Base interval in ms (slowest)
@@ -43,7 +46,8 @@ export default class AudioManager {
         
         // Initialize audio
         if (!isTest) {
-            this.init();
+            // Don't auto-initialize, wait for user interaction
+            console.log('Audio manager created, waiting for user interaction');
         } else {
             // Create mock pools for testing
             Object.keys(this.poolConfig).forEach(key => {
@@ -70,18 +74,67 @@ export default class AudioManager {
     }
     
     async init() {
+        if (this.initialized || this.initializationAttempted) {
+            console.log('Audio already initialized or attempted');
+            return;
+        }
+        
+        this.initializationAttempted = true;
+        
         try {
+            console.log('Initializing audio...');
+            
+            // Ensure audio context is resumed
+            if (this.context.state !== 'running') {
+                console.log('Resuming audio context...');
+                await this.context.resume();
+                console.log('Audio context resumed:', this.context.state);
+            }
+            
             // Load all sound buffers
             await Promise.all(
                 Object.entries(this.poolConfig).map(async ([key, config]) => {
-                    const response = await fetch(config.url);
-                    const arrayBuffer = await response.arrayBuffer();
-                    this.buffers[key] = await this.context.decodeAudioData(arrayBuffer);
-                    
-                    // Create pool for this sound
-                    this.createPool(key, config.size);
+                    try {
+                        console.log(`Loading sound: ${key} from ${config.url}`);
+                        const response = await fetch(config.url);
+                        
+                        if (!response.ok) {
+                            throw new Error(`Failed to fetch ${config.url}: ${response.status} ${response.statusText}`);
+                        }
+                        
+                        const arrayBuffer = await response.arrayBuffer();
+                        this.buffers[key] = await this.context.decodeAudioData(arrayBuffer);
+                        
+                        // Create pool for this sound
+                        this.createPool(key, config.size);
+                        console.log(`Sound loaded: ${key}`);
+                    } catch (error) {
+                        console.error(`Failed to load sound ${key}:`, error);
+                        // Try with a fallback path
+                        try {
+                            const fallbackUrl = '/' + config.url;
+                            console.log(`Trying fallback URL: ${fallbackUrl}`);
+                            const response = await fetch(fallbackUrl);
+                            
+                            if (!response.ok) {
+                                throw new Error(`Failed to fetch fallback ${fallbackUrl}: ${response.status} ${response.statusText}`);
+                            }
+                            
+                            const arrayBuffer = await response.arrayBuffer();
+                            this.buffers[key] = await this.context.decodeAudioData(arrayBuffer);
+                            
+                            // Create pool for this sound
+                            this.createPool(key, config.size);
+                            console.log(`Sound loaded from fallback: ${key}`);
+                        } catch (fallbackError) {
+                            console.error(`Failed to load sound ${key} from fallback:`, fallbackError);
+                        }
+                    }
                 })
             );
+            
+            this.initialized = true;
+            console.log('Audio initialization complete');
         } catch (error) {
             console.error('Failed to initialize audio:', error);
         }

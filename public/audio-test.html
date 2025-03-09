@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        button {
+            padding: 10px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .log {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Audio Test Page</h1>
+    <p>This page tests audio loading and playback in the deployed environment.</p>
+    
+    <div>
+        <button id="init-audio">Initialize Audio</button>
+        <button id="play-sound">Play Test Sound</button>
+        <button id="test-paths">Test All Sound Paths</button>
+    </div>
+    
+    <div class="log" id="log"></div>
+    
+    <script>
+        const log = document.getElementById('log');
+        const initButton = document.getElementById('init-audio');
+        const playButton = document.getElementById('play-sound');
+        const testPathsButton = document.getElementById('test-paths');
+        
+        let audioContext = null;
+        let testBuffer = null;
+        
+        function logMessage(message) {
+            const timestamp = new Date().toISOString().substr(11, 8);
+            log.innerHTML += `[${timestamp}] ${message}<br>`;
+            log.scrollTop = log.scrollHeight;
+            console.log(message);
+        }
+        
+        initButton.addEventListener('click', async () => {
+            try {
+                logMessage('Initializing audio context...');
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                logMessage(`Audio context created. State: ${audioContext.state}`);
+                
+                if (audioContext.state !== 'running') {
+                    logMessage('Resuming audio context...');
+                    await audioContext.resume();
+                    logMessage(`Audio context resumed. State: ${audioContext.state}`);
+                }
+            } catch (error) {
+                logMessage(`Error initializing audio: ${error.message}`);
+            }
+        });
+        
+        playButton.addEventListener('click', async () => {
+            if (!audioContext) {
+                logMessage('Audio context not initialized. Click "Initialize Audio" first.');
+                return;
+            }
+            
+            try {
+                if (!testBuffer) {
+                    logMessage('Loading test sound...');
+                    const response = await fetch('sounds/beat1.wav');
+                    
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch sound: ${response.status} ${response.statusText}`);
+                    }
+                    
+                    const arrayBuffer = await response.arrayBuffer();
+                    testBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                    logMessage('Test sound loaded successfully.');
+                }
+                
+                logMessage('Playing test sound...');
+                const source = audioContext.createBufferSource();
+                source.buffer = testBuffer;
+                source.connect(audioContext.destination);
+                source.start(0);
+                logMessage('Test sound playback started.');
+            } catch (error) {
+                logMessage(`Error playing sound: ${error.message}`);
+            }
+        });
+        
+        testPathsButton.addEventListener('click', async () => {
+            const soundPaths = [
+                'sounds/beat1.wav',
+                'sounds/beat2.wav',
+                'sounds/fire.wav',
+                'sounds/bang-large.wav',
+                'sounds/bang-medium.wav',
+                'sounds/bang-small.wav',
+                'sounds/wave-end.wav',
+                'sounds/thrust.wav',
+                'sounds/extra-life.wav',
+                '/sounds/beat1.wav',
+                '/sounds/beat2.wav'
+            ];
+            
+            logMessage('Testing all sound paths...');
+            
+            for (const path of soundPaths) {
+                try {
+                    logMessage(`Testing path: ${path}`);
+                    const response = await fetch(path);
+                    
+                    if (response.ok) {
+                        logMessage(`✅ Path ${path} is accessible. Content-Type: ${response.headers.get('content-type')}`);
+                    } else {
+                        logMessage(`❌ Path ${path} returned status: ${response.status} ${response.statusText}`);
+                    }
+                } catch (error) {
+                    logMessage(`❌ Error fetching ${path}: ${error.message}`);
+                }
+            }
+            
+            logMessage('Path testing complete.');
+        });
+        
+        // Log browser information
+        logMessage(`User Agent: ${navigator.userAgent}`);
+        logMessage(`AudioContext supported: ${!!(window.AudioContext || window.webkitAudioContext)}`);
+    </script>
+</body>
+</html> 
