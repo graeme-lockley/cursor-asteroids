@@ -221,8 +221,6 @@ export default class Game {
             this.asteroids.forEach((asteroid, index) => {
                 if (checkCollision(this.ship, asteroid)) {
                     this.lives--;
-                    this.ship.reset(this.canvas.width / 2, this.canvas.height / 2);  // Reset ship position
-                    this.handleAsteroidDestruction(index);
                     
                     if (this.lives <= 0) {
                         this.gameOverPending = true;  // Enter pending state
@@ -235,7 +233,12 @@ export default class Game {
                             document.getElementById('game-over-screen').classList.add('visible');
                             document.getElementById('final-score').textContent = this.score;
                         }, 3000);
+                    } else {
+                        // Only reset ship position if player still has lives
+                        this.ship.reset(this.canvas.width / 2, this.canvas.height / 2);
                     }
+                    
+                    this.handleAsteroidDestruction(index);
                 }
             });
         }
