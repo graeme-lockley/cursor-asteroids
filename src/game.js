@@ -110,8 +110,27 @@ export default class Game {
     }
     
     gameLoop() {
-        if (!this.paused && !this.gameOver) {
-            this.update();
+        // Calculate delta time for consistent motion
+        const currentTime = performance.now();
+        const deltaTime = (currentTime - this.lastTime) / 1000;
+        this.lastTime = currentTime;
+        
+        if (!this.paused) {
+            if (!this.gameOver) {
+                // Full update when game is running
+                this.update();
+            } else {
+                // Only update asteroid positions when game is over
+                this.asteroids.forEach(asteroid => asteroid.update(deltaTime, this.canvas.width, this.canvas.height));
+                
+                // Keep wrapping asteroids around screen edges
+                this.asteroids.forEach(asteroid => {
+                    if (asteroid.x < 0) asteroid.x = this.canvas.width;
+                    if (asteroid.x > this.canvas.width) asteroid.x = 0;
+                    if (asteroid.y < 0) asteroid.y = this.canvas.height;
+                    if (asteroid.y > this.canvas.height) asteroid.y = 0;
+                });
+            }
             this.render();
         }
         
@@ -119,12 +138,9 @@ export default class Game {
     }
     
     update() {
-        // Calculate delta time
-        const currentTime = performance.now();
-        const deltaTime = (currentTime - this.lastTime) / 1000; // Convert to seconds
-        this.lastTime = currentTime;
-        
         // Update ship with input and delta time
+        const deltaTime = (performance.now() - this.lastTime) / 1000;
+        
         this.ship.update(deltaTime, keys, this.canvas.width, this.canvas.height);
         
         // Handle shooting
