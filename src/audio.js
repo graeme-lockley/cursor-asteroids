@@ -23,15 +23,15 @@ export default class AudioManager {
         
         // Pool configuration
         this.poolConfig = {
-            beat1: { url: 'sounds/beat1.wav', size: 2 },
-            beat2: { url: 'sounds/beat2.wav', size: 2 },
-            fire: { url: 'sounds/fire.wav', size: 4 },
-            bangLarge: { url: 'sounds/bang-large.wav', size: 4 },
-            bangMedium: { url: 'sounds/bang-medium.wav', size: 4 },
-            bangSmall: { url: 'sounds/bang-small.wav', size: 4 },
-            waveEnd: { url: 'sounds/wave-end.wav', size: 2 },
-            thrust: { url: 'sounds/thrust.wav', size: 2 },
-            extraLife: { url: 'sounds/extra-life.wav', size: 2 }  // Add extra life sound config
+            beat1: { url: '/sounds/beat1.wav', size: 2 },
+            beat2: { url: '/sounds/beat2.wav', size: 2 },
+            fire: { url: '/sounds/fire.wav', size: 4 },
+            bangLarge: { url: '/sounds/bang-large.wav', size: 4 },
+            bangMedium: { url: '/sounds/bang-medium.wav', size: 4 },
+            bangSmall: { url: '/sounds/bang-small.wav', size: 4 },
+            waveEnd: { url: '/sounds/wave-end.wav', size: 2 },
+            thrust: { url: '/sounds/thrust.wav', size: 2 },
+            extraLife: { url: '/sounds/extra-life.wav', size: 2 }  // Add extra life sound config
         };
         
         this.baseInterval = 1000;  // Base interval in ms (slowest)
