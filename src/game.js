@@ -33,6 +33,7 @@ export default class Game {
         this.gameOver = false;
         this.paused = false;
         this.wave = 1;
+        this.initialAsteroidCount = 0;
         this.ship = new Ship(this.canvas.width / 2, this.canvas.height / 2);
         this.asteroids = [];
         this.bullets = [];
@@ -204,6 +205,7 @@ export default class Game {
     
     handleAsteroidDestruction(index) {
         const asteroid = this.asteroids[index];
+        let newAsteroidsCount = 0;
         
         // Play explosion sound
         this.audio.playBangSound(asteroid.size);
@@ -212,12 +214,15 @@ export default class Game {
         switch (asteroid.size) {
             case 'large':
                 this.score += 20;
+                newAsteroidsCount = 2;  // Will create 2 medium asteroids
                 break;
             case 'medium':
                 this.score += 50;
+                newAsteroidsCount = 2;  // Will create 2 small asteroids
                 break;
             case 'small':
                 this.score += 100;
+                newAsteroidsCount = 0;  // No new asteroids
                 break;
         }
         
@@ -240,11 +245,24 @@ export default class Game {
         // Remove the original asteroid
         this.asteroids.splice(index, 1);
         
+        // Update beat interval based on remaining asteroids
+        // Count total asteroids including those that will be created
+        const totalAsteroids = this.asteroids.length + newAsteroidsCount;
+        this.audio.updateBeatInterval(totalAsteroids, this.initialAsteroidCount);
+        
         // Check if all asteroids are destroyed
         if (this.asteroids.length === 0) {
             this.wave++;
-            this.createNewWave();
-            this.audio.startBackgroundBeat(this.wave);
+            
+            // Play wave end sound (quick double beat)
+            this.audio.playWaveEndSound();
+            
+            // Create new wave after delay
+            setTimeout(() => {
+                this.createNewWave();
+                // Start the background beat for the new wave
+                this.audio.startBackgroundBeat(this.wave);
+            }, 3000);  // 3 second delay
         }
     }
     
@@ -254,10 +272,39 @@ export default class Game {
         
         // Create new asteroids based on wave number
         const numAsteroids = 3 + this.wave;  // Increase asteroids with each wave
+        this.initialAsteroidCount = numAsteroids;  // Store initial count
+        
         for (let i = 0; i < numAsteroids; i++) {
-            const x = Math.random() * this.canvas.width;
-            const y = Math.random() * this.canvas.height;
-            const angle = Math.random() * Math.PI * 2;
+            // Calculate position on the perimeter
+            let x, y;
+            const side = Math.floor(Math.random() * 4);  // 0: top, 1: right, 2: bottom, 3: left
+            
+            switch (side) {
+                case 0:  // Top
+                    x = Math.random() * this.canvas.width;
+                    y = 0;
+                    break;
+                case 1:  // Right
+                    x = this.canvas.width;
+                    y = Math.random() * this.canvas.height;
+                    break;
+                case 2:  // Bottom
+                    x = Math.random() * this.canvas.width;
+                    y = this.canvas.height;
+                    break;
+                case 3:  // Left
+                    x = 0;
+                    y = Math.random() * this.canvas.height;
+                    break;
+            }
+            
+            // Calculate angle to point somewhat towards the center
+            const centerX = this.canvas.width / 2;
+            const centerY = this.canvas.height / 2;
+            const angleToCenter = Math.atan2(centerY - y, centerX - x);
+            // Add some randomness to the angle (±45 degrees)
+            const angle = angleToCenter + (Math.random() - 0.5) * Math.PI / 2;
+            
             this.asteroids.push(new Asteroid(x, y, 'large', 2, angle));
         }
     }

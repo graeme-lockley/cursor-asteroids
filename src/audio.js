@@ -15,7 +15,8 @@ export default class AudioManager {
             fire: [],
             bangLarge: [],
             bangMedium: [],
-            bangSmall: []
+            bangSmall: [],
+            waveEnd: []
         };
         
         // Pool configuration
@@ -25,12 +26,15 @@ export default class AudioManager {
             fire: { url: 'sounds/fire.wav', size: 4 },
             bangLarge: { url: 'sounds/bang-large.wav', size: 4 },
             bangMedium: { url: 'sounds/bang-medium.wav', size: 4 },
-            bangSmall: { url: 'sounds/bang-small.wav', size: 4 }
+            bangSmall: { url: 'sounds/bang-small.wav', size: 4 },
+            waveEnd: { url: 'sounds/wave-end.wav', size: 2 }
         };
         
-        this.beatInterval = 1000;  // Initial beat interval in ms
+        this.baseInterval = 1000;  // Base interval in ms (slowest)
+        this.minInterval = 250;    // Minimum interval in ms (fastest)
+        this.beatInterval = this.baseInterval;
         this.beatTimer = null;
-        this.currentBeat = 0;  // 0 for beat1, 1 for beat2
+        this.currentBeat = 0;
         
         // Initialize audio
         if (!isTest) {
@@ -166,19 +170,38 @@ export default class AudioManager {
         }
     }
     
-    startBackgroundBeat(wave) {
+    playWaveEndSound() {
+        // Stop the regular background beat
+        this.stopBackgroundBeat();
+        
+        // Use current interval for the finale
+        const finaleInterval = this.beatInterval / 2;  // Twice as fast as current beat
+        
+        // Play quick double beat finale
+        this.playSound('beat1');
+        setTimeout(() => {
+            this.playSound('beat2');
+        }, finaleInterval);
+    }
+    
+    startBackgroundBeat(wave, delay = 0) {
         // Stop any existing beat
         this.stopBackgroundBeat();
         
-        // Calculate new interval based on wave number
-        // Each wave speeds up the beat, up to 4x faster
-        const speedMultiplier = Math.min(4, 1 + (wave - 1) * 0.5);
-        this.beatInterval = 1000 / speedMultiplier;
+        // Reset to base interval at start of wave
+        this.beatInterval = this.baseInterval;
         
+        if (delay === 0) {
+            this.startBeatSequence();
+        } else {
+            setTimeout(() => this.startBeatSequence(), delay);
+        }
+    }
+    
+    startBeatSequence() {
         // Start with beat1
         this.currentBeat = 0;
         
-        // Start the beat
         const playBeat = () => {
             this.playSound(this.currentBeat === 0 ? 'beat1' : 'beat2');
             
@@ -197,6 +220,20 @@ export default class AudioManager {
         if (this.beatTimer) {
             clearTimeout(this.beatTimer);
             this.beatTimer = null;
+        }
+    }
+
+    updateBeatInterval(remainingAsteroids, totalAsteroids) {
+        // Calculate how far through the wave we are (0 to 1)
+        const progress = 1 - (remainingAsteroids / totalAsteroids);
+        
+        // Calculate new interval, interpolating between base and min intervals
+        this.beatInterval = this.baseInterval - (progress * (this.baseInterval - this.minInterval));
+        
+        // If we're currently playing beats, restart with new interval
+        if (this.beatTimer) {
+            this.stopBackgroundBeat();
+            this.startBeatSequence();
         }
     }
 } 
