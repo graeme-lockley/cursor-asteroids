@@ -124,7 +124,7 @@ export default class Game {
         if (!this.paused) {
             if (!this.gameOver) {
                 // Full update when game is running
-                this.update();
+                this.update(deltaTime);
             } else {
                 // Only update asteroid positions when game is over
                 this.asteroids.forEach(asteroid => asteroid.update(deltaTime, this.canvas.width, this.canvas.height));
@@ -143,9 +143,7 @@ export default class Game {
         requestAnimationFrame(() => this.gameLoop());
     }
     
-    update() {
-        const deltaTime = (performance.now() - this.lastTime) / 1000;
-        
+    update(deltaTime) {
         // Only update ship if not in game over pending state
         if (!this.gameOverPending) {
             this.ship.update(deltaTime, keys, this.canvas.width, this.canvas.height);
