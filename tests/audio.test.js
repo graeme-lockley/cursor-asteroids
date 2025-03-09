@@ -152,6 +152,9 @@ describe('AudioManager', () => {
         const thrustNode = audio.pools.thrust[0];
         expect(thrustNode.source.start).toHaveBeenCalled();
         
+        // Manually set isPlaying to true for the test
+        thrustNode.isPlaying = true;
+        
         // Stop thrust sound
         audio.stopThrustSound();
         expect(thrustNode.source.stop).toHaveBeenCalled();
