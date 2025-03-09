@@ -17,7 +17,8 @@ export default class AudioManager {
             bangMedium: [],
             bangSmall: [],
             waveEnd: [],
-            thrust: []  // Add thrust sound pool
+            thrust: [],
+            extraLife: []  // Add extra life sound pool
         };
         
         // Pool configuration
@@ -29,7 +30,8 @@ export default class AudioManager {
             bangMedium: { url: 'sounds/bang-medium.wav', size: 4 },
             bangSmall: { url: 'sounds/bang-small.wav', size: 4 },
             waveEnd: { url: 'sounds/wave-end.wav', size: 2 },
-            thrust: { url: 'sounds/thrust.wav', size: 2 }  // Add thrust sound config
+            thrust: { url: 'sounds/thrust.wav', size: 2 },
+            extraLife: { url: 'sounds/extra-life.wav', size: 2 }  // Add extra life sound config
         };
         
         this.baseInterval = 1000;  // Base interval in ms (slowest)
@@ -230,17 +232,18 @@ export default class AudioManager {
     }
     
     playWaveEndSound() {
-        // Stop the regular background beat
-        this.stopBackgroundBeat();
-        
-        // Use current interval for the finale
-        const finaleInterval = this.beatInterval / 2;  // Twice as fast as current beat
-        
-        // Play quick double beat finale
-        this.playSound('beat1');
-        setTimeout(() => {
-            this.playSound('beat2');
-        }, finaleInterval);
+        this.playSound('waveEnd');
+    }
+
+    playExtraLifeSound() {
+        // Play the extra life sound three times in sequence
+        const playBeep = (count) => {
+            if (count < 3) {
+                this.playSound('extraLife');
+                setTimeout(() => playBeep(count + 1), 200); // 200ms between beeps
+            }
+        };
+        playBeep(0);
     }
     
     startBackgroundBeat(wave, delay = 0) {

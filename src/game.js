@@ -10,7 +10,8 @@ const GAME_SETTINGS = {
     GAME_OVER_DELAY: 3000,
     WAVE_CREATION_DELAY: 3000,
     BACKGROUND_BEAT_DELAY: 500,
-    BASE_ASTEROIDS: 3
+    BASE_ASTEROIDS: 3,
+    EXTRA_LIFE_SCORE: 10000  // Score needed for an extra life
 };
 
 export default class Game {
@@ -25,6 +26,13 @@ export default class Game {
         this.isTestMode = isTestMode;
         this.lastTime = performance.now();
         this.gameOverTimer = null;
+        
+        // Create game over screen if it doesn't exist
+        if (!document.getElementById('game-over-screen')) {
+            const gameOverScreen = document.createElement('div');
+            gameOverScreen.id = 'game-over-screen';
+            document.body.appendChild(gameOverScreen);
+        }
         
         // Initialize game state
         this.reset();
@@ -46,6 +54,13 @@ export default class Game {
         this.paused = false;
         this.wave = 1;
         this.initialAsteroidCount = 0;
+        this.lastExtraLifeScore = 0;  // Track when the last extra life was awarded
+        
+        // Hide game over screen
+        const gameOverScreen = document.getElementById('game-over-screen');
+        if (gameOverScreen) {
+            gameOverScreen.classList.remove('visible');
+        }
         
         // Create game objects
         this.ship = new Ship(this.canvas.width / 2, this.canvas.height / 2);
@@ -266,22 +281,27 @@ export default class Game {
             this.asteroids.forEach((asteroid, index) => {
                 if (checkCollision(this.ship, asteroid)) {
                     this.lives--;
-                    this.ship.isInvulnerable = true;
                     
                     if (this.lives <= 0) {
                         this.gameOverPending = true;
                         this.ship.visible = false;
+                        this.ship.isInvulnerable = true;
                         setTimeout(() => {
                             this.gameOver = true;
                             this.gameOverPending = false;
                             document.getElementById('game-over-screen').classList.add('visible');
                         }, GAME_SETTINGS.GAME_OVER_DELAY);
+                        
+                        // Handle asteroid destruction after setting game over state
+                        this.handleAsteroidDestruction(index);
                     } else {
                         // Only reset ship position if player still has lives
+                        this.ship.isInvulnerable = true;
                         this.ship.reset(this.canvas.width / 2, this.canvas.height / 2);
+                        
+                        // Handle asteroid destruction
+                        this.handleAsteroidDestruction(index);
                     }
-                    
-                    this.handleAsteroidDestruction(index);
                 }
             });
         }
@@ -310,8 +330,11 @@ export default class Game {
                 break;
         }
         
-        // Create smaller asteroids if not already at smallest size
-        if (asteroid.size !== 'small') {
+        // Check for extra life
+        this.checkExtraLife();
+        
+        // Create smaller asteroids if not already at smallest size and not in game over
+        if (asteroid.size !== 'small' && !this.gameOverPending && !this.gameOver) {
             const newSize = asteroid.size === 'large' ? 'medium' : 'small';
             for (let i = 0; i < 2; i++) {
                 const angle = (Math.PI * 2 * i) / 2;
@@ -338,7 +361,8 @@ export default class Game {
         if (this.asteroids.length === 0) {
             this.wave++;
             
-            // Play wave end sound (quick double beat)
+            // Stop background beat and play wave end sound
+            this.audio.stopBackgroundBeat();
             this.audio.playWaveEndSound();
             
             // Create new wave after delay
@@ -393,6 +417,18 @@ export default class Game {
             const angle = angleToCenter + (Math.random() - 0.5) * Math.PI / 2;
             
             this.asteroids.push(new Asteroid(x, y, 'large', 2, angle));
+        }
+    }
+    
+    checkExtraLife() {
+        // Check if player has earned an extra life
+        const extraLivesEarned = Math.floor(this.score / GAME_SETTINGS.EXTRA_LIFE_SCORE);
+        const newExtraLives = extraLivesEarned - Math.floor(this.lastExtraLifeScore / GAME_SETTINGS.EXTRA_LIFE_SCORE);
+        
+        if (newExtraLives > 0) {
+            this.lives += newExtraLives;
+            this.lastExtraLifeScore = extraLivesEarned * GAME_SETTINGS.EXTRA_LIFE_SCORE;
+            this.audio.playExtraLifeSound();
         }
     }
 } 
