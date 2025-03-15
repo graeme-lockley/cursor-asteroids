@@ -1,3 +1,5 @@
+import { wrapPosition } from './collision.js';
+
 export default class Asteroid {
     constructor(x, y, size, baseSpeed = null, angle = null, baseVelocity = null) {
         this.x = x;
@@ -64,11 +66,9 @@ export default class Asteroid {
         this.x += this.velocity.x * deltaTime;
         this.y += this.velocity.y * deltaTime;
         
-        // Wrap around screen
-        if (this.x < -this.radius) this.x = width + this.radius;
-        if (this.x > width + this.radius) this.x = -this.radius;
-        if (this.y < -this.radius) this.y = height + this.radius;
-        if (this.y > height + this.radius) this.y = -this.radius;
+        // Wrap around screen using the central wrapping utility
+        // Use radius for smoother wrapping at edges
+        wrapPosition(this, width, height, { useRadius: true });
     }
     
     render(ctx) {

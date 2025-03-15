@@ -1,6 +1,6 @@
 import Ship from './ship.js';
 import Asteroid from './asteroid.js';
-import { checkCollision } from './collision.js';
+import { checkCollision, wrapPosition } from './collision.js';
 import { setupInput, keys } from './input.js';
 import AudioManager from './audio.js';
 
@@ -228,10 +228,10 @@ export default class Game {
     }
     
     wrapObject(obj) {
-        if (obj.x < 0) obj.x = this.canvas.width;
-        if (obj.x > this.canvas.width) obj.x = 0;
-        if (obj.y < 0) obj.y = this.canvas.height;
-        if (obj.y > this.canvas.height) obj.y = 0;
+        // Use the central wrapping utility
+        // Simple wrapping for generic objects without radius consideration
+        const options = {};
+        wrapPosition(obj, this.canvas.width, this.canvas.height, options);
     }
     
     update(deltaTime) {

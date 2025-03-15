@@ -1,4 +1,5 @@
 import Bullet from './bullet.js';
+import { wrapPosition } from './collision.js';
 
 // Constants
 const ROTATION_SPEED = 5; // radians per second
@@ -107,10 +108,8 @@ export default class Ship {
     }
     
     wrapAroundScreen(width, height) {
-        if (this.x < 0) this.x = width;
-        if (this.x > width) this.x = 0;
-        if (this.y < 0) this.y = height;
-        if (this.y > height) this.y = 0;
+        // Use the central wrapping utility with simple wrapping (no radius consideration)
+        wrapPosition(this, width, height);
     }
     
     updateTimers(deltaTime) {

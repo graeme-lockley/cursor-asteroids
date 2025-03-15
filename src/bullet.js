@@ -1,6 +1,8 @@
 // Constants
 export const BULLET_MAX_DISTANCE = 0.95; // As a fraction of screen dimension
 
+import { wrapPosition } from './collision.js';
+
 export default class Bullet {
     constructor(x, y, velocityX, velocityY) {
         // Position
@@ -35,27 +37,11 @@ export default class Bullet {
     }
     
     handleScreenWrapping(width, height) {
-        // Handle horizontal wrapping
-        if (this.x < 0) {
-            this.addDistanceTraveled(this.prevX, 0);
-            this.x = width;
-        } else if (this.x > width) {
-            this.addDistanceTraveled(width - this.prevX, 0);
-            this.x = 0;
-        } else {
-            this.addDistanceTraveled(Math.abs(this.x - this.prevX), 0);
-        }
-        
-        // Handle vertical wrapping
-        if (this.y < 0) {
-            this.addDistanceTraveled(0, this.prevY);
-            this.y = height;
-        } else if (this.y > height) {
-            this.addDistanceTraveled(0, height - this.prevY);
-            this.y = 0;
-        } else {
-            this.addDistanceTraveled(0, Math.abs(this.y - this.prevY));
-        }
+        // Use the central wrapping utility with distance tracking
+        wrapPosition(this, width, height, {
+            trackDistance: true,
+            addDistanceCallback: (dx, dy) => this.addDistanceTraveled(dx, dy)
+        });
     }
     
     addDistanceTraveled(dx, dy) {
